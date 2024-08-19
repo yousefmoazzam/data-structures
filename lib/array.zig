@@ -17,6 +17,14 @@ const DynamicArray = struct {
     pub fn free(self: DynamicArray, allocator: std.mem.Allocator) std.mem.Allocator.Error!void {
         allocator.free(self.slice);
     }
+
+    pub fn set(self: DynamicArray, idx: usize, value: u8) void {
+        self.slice[idx] = value;
+    }
+
+    pub fn get(self: DynamicArray, idx: usize) u8 {
+        return self.slice[idx];
+    }
 };
 
 test "create dynamic array with given length" {
@@ -24,5 +32,15 @@ test "create dynamic array with given length" {
     const allocator = std.testing.allocator;
     const arr = try DynamicArray.new(allocator, len);
     try std.testing.expect(arr.len == len);
+    try arr.free(allocator);
+}
+
+test "set and get value in dynamic array" {
+    const len = 1;
+    const allocator = std.testing.allocator;
+    var arr = try DynamicArray.new(allocator, len);
+    const new_value = 5;
+    arr.set(0, new_value);
+    try std.testing.expect(arr.get(0) == new_value);
     try arr.free(allocator);
 }
