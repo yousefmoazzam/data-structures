@@ -22,7 +22,10 @@ const DynamicArray = struct {
         allocator.free(self.slice);
     }
 
-    pub fn set(self: DynamicArray, idx: usize, value: u8) void {
+    pub fn set(self: DynamicArray, idx: usize, value: u8) DynamicArrayError!void {
+        if (idx >= self.slice.len) {
+            return DynamicArrayError.OutOfBounds;
+        }
         self.slice[idx] = value;
     }
 
@@ -47,7 +50,7 @@ test "set and get value in dynamic array" {
     const allocator = std.testing.allocator;
     var arr = try DynamicArray.new(allocator, len);
     const new_value = 5;
-    arr.set(0, new_value);
+    try arr.set(0, new_value);
     const val = try arr.get(0);
     try std.testing.expect(val == new_value);
     try arr.free(allocator);
@@ -58,6 +61,15 @@ test "return error on out of bounds get index" {
     const allocator = std.testing.allocator;
     var arr = try DynamicArray.new(allocator, len);
     const ret = arr.get(1);
+    try std.testing.expectError(DynamicArrayError.OutOfBounds, ret);
+    try arr.free(allocator);
+}
+
+test "return error on out of bounds set index" {
+    const len = 1;
+    const allocator = std.testing.allocator;
+    var arr = try DynamicArray.new(allocator, len);
+    const ret = arr.set(1, 5);
     try std.testing.expectError(DynamicArrayError.OutOfBounds, ret);
     try arr.free(allocator);
 }
