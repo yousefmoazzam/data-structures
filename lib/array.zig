@@ -1,5 +1,9 @@
 const std = @import("std");
 
+const DynamicArrayError = error{
+    OutOfBounds,
+};
+
 const DynamicArray = struct {
     // Length of the dynamic array as seen by the user
     len: usize,
@@ -22,7 +26,10 @@ const DynamicArray = struct {
         self.slice[idx] = value;
     }
 
-    pub fn get(self: DynamicArray, idx: usize) u8 {
+    pub fn get(self: DynamicArray, idx: usize) DynamicArrayError!u8 {
+        if (idx >= self.slice.len) {
+            return DynamicArrayError.OutOfBounds;
+        }
         return self.slice[idx];
     }
 };
@@ -41,6 +48,16 @@ test "set and get value in dynamic array" {
     var arr = try DynamicArray.new(allocator, len);
     const new_value = 5;
     arr.set(0, new_value);
-    try std.testing.expect(arr.get(0) == new_value);
+    const val = try arr.get(0);
+    try std.testing.expect(val == new_value);
+    try arr.free(allocator);
+}
+
+test "return error on out of bounds get index" {
+    const len = 1;
+    const allocator = std.testing.allocator;
+    var arr = try DynamicArray.new(allocator, len);
+    const ret = arr.get(1);
+    try std.testing.expectError(DynamicArrayError.OutOfBounds, ret);
     try arr.free(allocator);
 }
