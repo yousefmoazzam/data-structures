@@ -11,7 +11,7 @@ const DynamicArray = struct {
     slice: []u8,
 
     pub fn new(allocator: std.mem.Allocator, len: usize) std.mem.Allocator.Error!DynamicArray {
-        const slice = try allocator.alloc(u8, len);
+        const slice = try allocator.alloc(u8, len * 2);
         return DynamicArray{
             .len = len,
             .slice = slice,
@@ -23,21 +23,21 @@ const DynamicArray = struct {
     }
 
     pub fn set(self: DynamicArray, idx: usize, value: u8) DynamicArrayError!void {
-        if (idx >= self.slice.len) {
+        if (idx >= self.len) {
             return DynamicArrayError.OutOfBounds;
         }
         self.slice[idx] = value;
     }
 
     pub fn get(self: DynamicArray, idx: usize) DynamicArrayError!u8 {
-        if (idx >= self.slice.len) {
+        if (idx >= self.len) {
             return DynamicArrayError.OutOfBounds;
         }
         return self.slice[idx];
     }
 
     pub fn get_slice(self: DynamicArray, start: usize, stop: usize) DynamicArrayError![]u8 {
-        if (stop >= self.slice.len) {
+        if (stop >= self.len) {
             return DynamicArrayError.OutOfBounds;
         }
         return self.slice[start..stop];
