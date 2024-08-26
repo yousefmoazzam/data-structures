@@ -42,6 +42,11 @@ const DynamicArray = struct {
         }
         return self.slice[start..stop];
     }
+
+    pub fn insert(self: *DynamicArray, value: u8) void {
+        self.slice[self.len] = value;
+        self.len += 1;
+    }
 };
 
 test "create dynamic array with given length" {
@@ -110,5 +115,33 @@ test "return error on out of bounds slice" {
     var arr = try DynamicArray.new(allocator, len);
     const ret = arr.get_slice(0, len);
     try std.testing.expectError(DynamicArrayError.OutOfBounds, ret);
+    try arr.free(allocator);
+}
+
+test "insert element into array" {
+    const startingLen = 1;
+    const allocator = std.testing.allocator;
+    const existingValue = 1;
+    const insertedValue = 5;
+    var arr = try DynamicArray.new(allocator, startingLen);
+
+    // Set value in array before inserting a new value
+    try arr.set(0, existingValue);
+
+    // Insert new value into array
+    arr.insert(insertedValue);
+
+    // Check that the array length has increased by one
+    try std.testing.expectEqual(arr.len, startingLen + 1);
+
+    // Check original value is still present in the array
+    const value = try arr.get(0);
+    try std.testing.expectEqual(existingValue, value);
+
+    // Check newly inserted element is at the end of the array
+    const endValue = try arr.get(startingLen);
+    try std.testing.expectEqual(insertedValue, endValue);
+
+    // Free testing array
     try arr.free(allocator);
 }
