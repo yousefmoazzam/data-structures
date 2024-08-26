@@ -43,8 +43,22 @@ const DynamicArray = struct {
         return self.slice[start..stop];
     }
 
-    pub fn insert(self: *DynamicArray, value: u8) void {
-        self.slice[self.len] = value;
+    pub fn insert(self: *DynamicArray, allocator: std.mem.Allocator, value: u8) std.mem.Allocator.Error!void {
+        if (self.len == self.slice.len) {
+            // Allocate new larger slice
+            const slice = try allocator.alloc(u8, self.len * 2);
+            // Copy values from existing slice into new slice
+            for (0..self.slice.len) |i| {
+                slice[i] = self.slice[i];
+            }
+            // Set newly inserted element
+            slice[self.slice.len] = value;
+            // Free old slice and assign newly created one
+            allocator.free(self.slice);
+            self.slice = slice;
+        } else {
+            self.slice[self.len] = value;
+        }
         self.len += 1;
     }
 };
@@ -129,7 +143,7 @@ test "insert element into array" {
     try arr.set(0, existingValue);
 
     // Insert new value into array
-    arr.insert(insertedValue);
+    try arr.insert(allocator, insertedValue);
 
     // Check that the array length has increased by one
     try std.testing.expectEqual(arr.len, startingLen + 1);
@@ -141,6 +155,38 @@ test "insert element into array" {
     // Check newly inserted element is at the end of the array
     const endValue = try arr.get(startingLen);
     try std.testing.expectEqual(insertedValue, endValue);
+
+    // Free testing array
+    try arr.free(allocator);
+}
+
+test "insert elements into array with no space left" {
+    const startingLen = 1;
+    const allocator = std.testing.allocator;
+    const existingValue = 1;
+    const valuesToInsert = [_]u8{ 1, 2, 3 };
+    var arr = try DynamicArray.new(allocator, startingLen);
+
+    // Set value in array before inserting a new value
+    try arr.set(0, existingValue);
+
+    // Insert new values into array
+    for (valuesToInsert) |value| {
+        try arr.insert(allocator, value);
+    }
+
+    // Check that the array length has increased
+    try std.testing.expectEqual(arr.len, startingLen + valuesToInsert.len);
+
+    // Check original value is still present in the array
+    const value = try arr.get(0);
+    try std.testing.expectEqual(existingValue, value);
+
+    // Check newly inserted elements are in the array
+    for (1..startingLen + valuesToInsert.len) |i| {
+        const insertedValue = try arr.get(i);
+        try std.testing.expectEqual(valuesToInsert[i - 1], insertedValue);
+    }
 
     // Free testing array
     try arr.free(allocator);
