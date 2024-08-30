@@ -61,6 +61,17 @@ const DynamicArray = struct {
         }
         self.len += 1;
     }
+
+    pub fn insert(self: *DynamicArray, idx: u8, value: u8) void {
+        // For indices starting at `idx`, shift their contents to the right by 1
+        for (idx..self.len) |i| {
+            self.slice[self.len - i] = self.slice[self.len - i - 1];
+        }
+
+        // Insert new value at given index
+        self.slice[idx] = value;
+        self.len += 1;
+    }
 };
 
 test "create dynamic array with given length" {
@@ -187,6 +198,40 @@ test "append elements to array with no space left" {
         const appendedValue = try arr.get(i);
         try std.testing.expectEqual(valuesToAppend[i - 1], appendedValue);
     }
+
+    // Free testing array
+    try arr.free(allocator);
+}
+
+test "insert element at start of array" {
+    const startlingLen = 3;
+    const allocator = std.testing.allocator;
+    const existingValues = [_]u8{ 2, 3, 4 };
+    const valueToInsert = 1;
+    var arr = try DynamicArray.new(allocator, startlingLen);
+
+    // Set values in array before inserting new value
+    for (existingValues, 0..) |value, i| {
+        try arr.set(i, value);
+    }
+
+    // Insert new value at start of array
+    arr.insert(0, valueToInsert);
+
+    // Check that the array length has increased by one
+    try std.testing.expectEqual(arr.len, startlingLen + 1);
+
+    // Check original values are still present in the array
+    for (0..existingValues.len) |i| {
+        // Shift by 1, since original values should have been shifted up by 1 due to the new
+        // value that was inserted at index 0
+        const value = try arr.get(i + 1);
+        try std.testing.expectEqual(existingValues[i], value);
+    }
+
+    // Check newly inserted element is at the beginning of the array
+    const startValue = try arr.get(0);
+    try std.testing.expectEqual(valueToInsert, startValue);
 
     // Free testing array
     try arr.free(allocator);
