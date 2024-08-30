@@ -43,7 +43,7 @@ const DynamicArray = struct {
         return self.slice[start..stop];
     }
 
-    pub fn insert(self: *DynamicArray, allocator: std.mem.Allocator, value: u8) std.mem.Allocator.Error!void {
+    pub fn append(self: *DynamicArray, allocator: std.mem.Allocator, value: u8) std.mem.Allocator.Error!void {
         if (self.len == self.slice.len) {
             // Allocate new larger slice
             const slice = try allocator.alloc(u8, self.len * 2);
@@ -51,7 +51,7 @@ const DynamicArray = struct {
             for (0..self.slice.len) |i| {
                 slice[i] = self.slice[i];
             }
-            // Set newly inserted element
+            // Set newly appended element
             slice[self.slice.len] = value;
             // Free old slice and assign newly created one
             allocator.free(self.slice);
@@ -132,18 +132,18 @@ test "return error on out of bounds slice" {
     try arr.free(allocator);
 }
 
-test "insert element into array" {
+test "append element to array" {
     const startingLen = 1;
     const allocator = std.testing.allocator;
     const existingValue = 1;
-    const insertedValue = 5;
+    const valueToAppend = 5;
     var arr = try DynamicArray.new(allocator, startingLen);
 
-    // Set value in array before inserting a new value
+    // Set value in array before appending a new value
     try arr.set(0, existingValue);
 
-    // Insert new value into array
-    try arr.insert(allocator, insertedValue);
+    // Append new value to array
+    try arr.append(allocator, valueToAppend);
 
     // Check that the array length has increased by one
     try std.testing.expectEqual(arr.len, startingLen + 1);
@@ -152,40 +152,40 @@ test "insert element into array" {
     const value = try arr.get(0);
     try std.testing.expectEqual(existingValue, value);
 
-    // Check newly inserted element is at the end of the array
+    // Check newly appended element is at the end of the array
     const endValue = try arr.get(startingLen);
-    try std.testing.expectEqual(insertedValue, endValue);
+    try std.testing.expectEqual(valueToAppend, endValue);
 
     // Free testing array
     try arr.free(allocator);
 }
 
-test "insert elements into array with no space left" {
+test "append elements to array with no space left" {
     const startingLen = 1;
     const allocator = std.testing.allocator;
     const existingValue = 1;
-    const valuesToInsert = [_]u8{ 1, 2, 3 };
+    const valuesToAppend = [_]u8{ 1, 2, 3 };
     var arr = try DynamicArray.new(allocator, startingLen);
 
-    // Set value in array before inserting a new value
+    // Set value in array before appending new values
     try arr.set(0, existingValue);
 
-    // Insert new values into array
-    for (valuesToInsert) |value| {
-        try arr.insert(allocator, value);
+    // Append new values to array
+    for (valuesToAppend) |value| {
+        try arr.append(allocator, value);
     }
 
     // Check that the array length has increased
-    try std.testing.expectEqual(arr.len, startingLen + valuesToInsert.len);
+    try std.testing.expectEqual(arr.len, startingLen + valuesToAppend.len);
 
     // Check original value is still present in the array
     const value = try arr.get(0);
     try std.testing.expectEqual(existingValue, value);
 
-    // Check newly inserted elements are in the array
-    for (1..startingLen + valuesToInsert.len) |i| {
-        const insertedValue = try arr.get(i);
-        try std.testing.expectEqual(valuesToInsert[i - 1], insertedValue);
+    // Check newly appended elements are in the array
+    for (1..startingLen + valuesToAppend.len) |i| {
+        const appendedValue = try arr.get(i);
+        try std.testing.expectEqual(valuesToAppend[i - 1], appendedValue);
     }
 
     // Free testing array
