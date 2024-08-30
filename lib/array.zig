@@ -62,7 +62,11 @@ const DynamicArray = struct {
         self.len += 1;
     }
 
-    pub fn insert(self: *DynamicArray, idx: u8, value: u8) void {
+    pub fn insert(self: *DynamicArray, idx: u8, value: u8) DynamicArrayError!void {
+        if (idx >= self.len) {
+            return DynamicArrayError.OutOfBounds;
+        }
+
         // For indices starting at `idx`, shift their contents to the right by 1
         for (idx..self.len) |i| {
             self.slice[self.len - i] = self.slice[self.len - i - 1];
@@ -216,7 +220,7 @@ test "insert element at start of array" {
     }
 
     // Insert new value at start of array
-    arr.insert(0, valueToInsert);
+    try arr.insert(0, valueToInsert);
 
     // Check that the array length has increased by one
     try std.testing.expectEqual(arr.len, startlingLen + 1);
@@ -234,5 +238,14 @@ test "insert element at start of array" {
     try std.testing.expectEqual(valueToInsert, startValue);
 
     // Free testing array
+    try arr.free(allocator);
+}
+
+test "return error on out of bounds insert" {
+    const startingLen = 2;
+    const allocator = std.testing.allocator;
+    var arr = try DynamicArray.new(allocator, startingLen);
+    const ret = arr.insert(startingLen, 0);
+    try std.testing.expectError(DynamicArrayError.OutOfBounds, ret);
     try arr.free(allocator);
 }
