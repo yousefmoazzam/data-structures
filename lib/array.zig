@@ -67,8 +67,8 @@ const DynamicArray = struct {
             return DynamicArrayError.OutOfBounds;
         }
 
-        // For indices starting at `idx`, shift their contents to the right by 1
-        for (idx..self.len) |i| {
+        // For indices after `idx`, shift their contents to the right by 1
+        for (0..self.len - idx) |i| {
             self.slice[self.len - i] = self.slice[self.len - i - 1];
         }
 
@@ -247,5 +247,36 @@ test "return error on out of bounds insert" {
     var arr = try DynamicArray.new(allocator, startingLen);
     const ret = arr.insert(startingLen, 0);
     try std.testing.expectError(DynamicArrayError.OutOfBounds, ret);
+    try arr.free(allocator);
+}
+
+test "insert element at non-zero index of array" {
+    const startlingLen = 3;
+    const allocator = std.testing.allocator;
+    const existingValues = [_]u8{ 2, 3, 4 };
+    const valueToInsert = 1;
+    const nonZeroIdx = 1;
+    var arr = try DynamicArray.new(allocator, startlingLen);
+
+    // Set values in array before inserting new value
+    for (existingValues, 0..) |value, i| {
+        try arr.set(i, value);
+    }
+
+    // Insert new value at non-zero index in array
+    try arr.insert(nonZeroIdx, valueToInsert);
+
+    // Check that the array length has increased by one
+    try std.testing.expectEqual(arr.len, startlingLen + 1);
+
+    // Check original values are still present in the array at indices 0, 2, 3
+    try std.testing.expectEqual(existingValues[0], try arr.get(0));
+    try std.testing.expectEqual(existingValues[1], try arr.get(2));
+    try std.testing.expectEqual(existingValues[2], try arr.get(3));
+
+    // Check newly inserted element is at index `nonZeroIdx` in the array
+    try std.testing.expectEqual(valueToInsert, try arr.get(nonZeroIdx));
+
+    // Free testing array
     try arr.free(allocator);
 }
