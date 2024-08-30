@@ -62,7 +62,7 @@ const DynamicArray = struct {
         self.len += 1;
     }
 
-    pub fn insert(self: *DynamicArray, idx: u8, value: u8) DynamicArrayError!void {
+    pub fn insert(self: *DynamicArray, idx: usize, value: u8) DynamicArrayError!void {
         if (idx >= self.len) {
             return DynamicArrayError.OutOfBounds;
         }
