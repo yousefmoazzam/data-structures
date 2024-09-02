@@ -98,6 +98,14 @@ const DynamicArray = struct {
         if (idx >= self.len) {
             return DynamicArrayError.OutOfBounds;
         }
+
+        // Shift elements on RHS of `idx` down by 1 position
+        for (idx..self.len - 1) |i| {
+            self.slice[i] = self.slice[i + 1];
+        }
+
+        // Decrease length by 1 to reflect deleted element
+        self.len -= 1;
     }
 };
 
@@ -350,6 +358,33 @@ test "return error on out of bounds delete" {
     // Attempt to delete element at out of bounds index
     const ret = arr.delete(outOfBoundsIdx);
     try std.testing.expectError(DynamicArrayError.OutOfBounds, ret);
+
+    // Free testing array
+    try arr.free(allocator);
+}
+
+test "delete element at start of array" {
+    const startingLen = 3;
+    const allocator = std.testing.allocator;
+    const existingValues = [_]u8{ 0, 1, 2 };
+    var arr = try DynamicArray.new(allocator, startingLen);
+
+    // Set values in array before deletion
+    for (0..existingValues.len - 1) |i| {
+        try arr.set(i, existingValues[i]);
+    }
+
+    // Delete element at index 0
+    try arr.delete(0);
+
+    // Check array length has decreased by 1
+    try std.testing.expectEqual(startingLen - 1, arr.len);
+
+    // Check the expected values are still in the array
+    for (0..existingValues.len - 2) |i| {
+        // Shift index used for `existingValues` due to deletion of 0th element from the array
+        try std.testing.expectEqual(try arr.get(i), existingValues[i + 1]);
+    }
 
     // Free testing array
     try arr.free(allocator);
