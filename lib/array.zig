@@ -93,6 +93,12 @@ const DynamicArray = struct {
         }
         self.len += 1;
     }
+
+    pub fn delete(self: *DynamicArray, idx: usize) DynamicArrayError!void {
+        if (idx >= self.len) {
+            return DynamicArrayError.OutOfBounds;
+        }
+    }
 };
 
 test "create dynamic array with given length" {
@@ -330,6 +336,20 @@ test "insert elements into array with no space left" {
         const value = try arr.get(i);
         try std.testing.expectEqual(valuesToInsert[i], value);
     }
+
+    // Free testing array
+    try arr.free(allocator);
+}
+
+test "return error on out of bounds delete" {
+    const startingLen = 2;
+    const allocator = std.testing.allocator;
+    const outOfBoundsIdx = 2;
+    var arr = try DynamicArray.new(allocator, startingLen);
+
+    // Attempt to delete element at out of bounds index
+    const ret = arr.delete(outOfBoundsIdx);
+    try std.testing.expectError(DynamicArrayError.OutOfBounds, ret);
 
     // Free testing array
     try arr.free(allocator);
