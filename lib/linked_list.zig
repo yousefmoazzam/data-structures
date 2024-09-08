@@ -18,6 +18,23 @@ const SinglyLinkedList = struct {
         };
     }
 
+    fn free(self: *SinglyLinkedList, allocator: std.mem.Allocator) std.mem.Allocator.Error!void {
+        // Zero elements in the linked list
+        if (self.len == 0) {
+            return;
+        }
+
+        // One or more elements in the linked list
+        var next = self.head.?.next;
+        while (next != null) {
+            allocator.destroy(self.head.?);
+            self.head = next;
+            next = self.head.?.next;
+        }
+        allocator.destroy(self.head.?);
+        self.len = 0;
+    }
+
     fn get(self: SinglyLinkedList, idx: usize) u8 {
         var node = self.head;
         var i: usize = 0;
@@ -65,4 +82,22 @@ test "append elements to singly linked list" {
     for (0..valuesToAppend.len) |i| {
         try std.testing.expectEqual(valuesToAppend[i], list.get(i));
     }
+
+    // Free linked list
+    try list.free(allocator);
+}
+
+test "free multi-element singly linked list" {
+    var list = SinglyLinkedList.new();
+    const valuesToAppend = [_]u8{ 1, 2 };
+    const allocator = std.testing.allocator;
+
+    // Append values to list
+    for (valuesToAppend) |value| {
+        try list.append(allocator, value);
+    }
+
+    // Free linked list and check that it is empty
+    try list.free(allocator);
+    try std.testing.expectEqual(0, list.len);
 }
