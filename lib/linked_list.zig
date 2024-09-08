@@ -6,6 +6,10 @@ const SinglyLinkedList = struct {
         next: ?*Node,
     };
 
+    const Error = error{
+        OutOfBounds,
+    };
+
     len: usize,
     head: ?*Node,
     tail: ?*Node,
@@ -35,7 +39,11 @@ const SinglyLinkedList = struct {
         self.len = 0;
     }
 
-    fn get(self: SinglyLinkedList, idx: usize) u8 {
+    fn get(self: SinglyLinkedList, idx: usize) Error!u8 {
+        if (idx >= self.len) {
+            return Error.OutOfBounds;
+        }
+
         var node = self.head;
         var i: usize = 0;
         while (i < idx) : (i += 1) {
@@ -100,4 +108,10 @@ test "free multi-element singly linked list" {
     // Free linked list and check that it is empty
     try list.free(allocator);
     try std.testing.expectEqual(0, list.len);
+}
+
+test "return out of bounds error get index" {
+    const list = SinglyLinkedList.new();
+    const ret = list.get(0);
+    try std.testing.expectError(SinglyLinkedList.Error.OutOfBounds, ret);
 }
