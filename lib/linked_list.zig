@@ -74,6 +74,12 @@ const SinglyLinkedList = struct {
         self.head = node;
         self.len += 1;
     }
+
+    fn insert(self: SinglyLinkedList, idx: usize) Error!void {
+        if (idx >= self.len) {
+            return Error.OutOfBounds;
+        }
+    }
 };
 
 test "create singly linked list" {
@@ -141,4 +147,10 @@ test "prepend elements to singly linked list" {
 
     // Free linked list
     try list.free(allocator);
+}
+
+test "return out of bound error insert index" {
+    var list = SinglyLinkedList.new();
+    const ret = list.insert(1);
+    try std.testing.expectError(SinglyLinkedList.Error.OutOfBounds, ret);
 }
