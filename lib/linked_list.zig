@@ -75,9 +75,13 @@ const SinglyLinkedList = struct {
         self.len += 1;
     }
 
-    fn insert(self: SinglyLinkedList, idx: usize) Error!void {
-        if (idx >= self.len) {
+    fn insert(self: *SinglyLinkedList, allocator: std.mem.Allocator, idx: usize, value: u8) (std.mem.Allocator.Error || Error)!void {
+        if (idx > self.len) {
             return Error.OutOfBounds;
+        }
+
+        if (idx == self.len) {
+            return self.append(allocator, value);
         }
     }
 };
@@ -151,6 +155,16 @@ test "prepend elements to singly linked list" {
 
 test "return out of bound error insert index" {
     var list = SinglyLinkedList.new();
-    const ret = list.insert(1);
+    const allocator = std.testing.allocator;
+    const ret = list.insert(allocator, 1, 5);
     try std.testing.expectError(SinglyLinkedList.Error.OutOfBounds, ret);
+}
+
+test "insert element at index equal to length of singly linked list" {
+    var list = SinglyLinkedList.new();
+    const value = 5;
+    const allocator = std.testing.allocator;
+    try list.insert(allocator, 0, value);
+    try std.testing.expectEqual(value, try list.get(0));
+    try list.free(allocator);
 }
