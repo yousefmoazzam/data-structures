@@ -66,6 +66,14 @@ const SinglyLinkedList = struct {
         self.tail = node;
         self.len += 1;
     }
+
+    fn prepend(self: *SinglyLinkedList, allocator: std.mem.Allocator, value: u8) std.mem.Allocator.Error!void {
+        var node = try allocator.create(Node);
+        node.value = value;
+        node.next = self.head;
+        self.head = node;
+        self.len += 1;
+    }
 };
 
 test "create singly linked list" {
@@ -114,4 +122,23 @@ test "return out of bounds error get index" {
     const list = SinglyLinkedList.new();
     const ret = list.get(0);
     try std.testing.expectError(SinglyLinkedList.Error.OutOfBounds, ret);
+}
+
+test "prepend elements to singly linked list" {
+    var list = SinglyLinkedList.new();
+    const valuesToPrepend = [_]u8{ 6, 7, 8 };
+    const allocator = std.testing.allocator;
+
+    // Prepend values to list
+    for (valuesToPrepend) |value| {
+        try list.prepend(allocator, value);
+    }
+
+    // Verify that the list contains the expected elements at the expected indices
+    for (0..valuesToPrepend.len) |i| {
+        try std.testing.expectEqual(valuesToPrepend[valuesToPrepend.len - 1 - i], try list.get(i));
+    }
+
+    // Free linked list
+    try list.free(allocator);
 }
