@@ -83,6 +83,23 @@ const SinglyLinkedList = struct {
         if (idx == self.len) {
             return self.append(allocator, value);
         }
+
+        var node = try allocator.create(Node);
+        node.value = value;
+
+        // Traverse list until the index before the index to insert new value at
+        var traversalPtr = self.head;
+        var count: usize = 0;
+        while (count < idx - 1) : (count += 1) {
+            // If execution gets past the first two `if` conditions earlier in the method, all
+            // nodes traversed in this while loop should not be null, so `.?` is safe to do
+            // here and won't ever cause a panic I think
+            traversalPtr = traversalPtr.?.next;
+        }
+        // Make the `next` field of the new node point to the node that is currently at `idx`
+        node.next = traversalPtr.?.next;
+        // Modify the `next` field of the node at `idx - 1` to point to the new node
+        traversalPtr.?.next = node;
     }
 };
 
@@ -166,5 +183,26 @@ test "insert element at index equal to length of singly linked list" {
     const allocator = std.testing.allocator;
     try list.insert(allocator, 0, value);
     try std.testing.expectEqual(value, try list.get(0));
+    try list.free(allocator);
+}
+
+test "insert element at index in middle of singly linked list" {
+    var list = SinglyLinkedList.new();
+    const valuesToAdd = [_]u8{ 3, 4, 5, 6 };
+    const middleIndex = 2;
+    const allocator = std.testing.allocator;
+
+    // Append first three values to list
+    for (0..valuesToAdd.len) |i| {
+        try list.append(allocator, valuesToAdd[i]);
+    }
+
+    // Insert last value at middle index
+    try list.insert(allocator, middleIndex, valuesToAdd[3]);
+
+    // Check that inserted value is at expected middle index
+    try std.testing.expectEqual(valuesToAdd[3], try list.get(middleIndex));
+
+    // Free list
     try list.free(allocator);
 }
