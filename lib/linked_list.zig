@@ -102,9 +102,16 @@ const SinglyLinkedList = struct {
         traversalPtr.?.next = node;
     }
 
-    fn delete(self: SinglyLinkedList, idx: usize) Error!void {
+    fn delete(self: *SinglyLinkedList, allocator: std.mem.Allocator, idx: usize) Error!void {
         if (idx >= self.len) {
             return Error.OutOfBounds;
+        }
+
+        if (idx == 0) {
+            const newHead = self.head.?.next;
+            allocator.destroy(self.head.?);
+            self.head = newHead;
+            self.len -= 1;
         }
     }
 };
@@ -215,6 +222,30 @@ test "insert element at index in middle of singly linked list" {
 
 test "return out of bounds error delete index" {
     var list = SinglyLinkedList.new();
-    const ret = list.delete(0);
+    const allocator = std.testing.allocator;
+    const ret = list.delete(allocator, 0);
     try std.testing.expectError(SinglyLinkedList.Error.OutOfBounds, ret);
+}
+
+test "delete 0th element in non-empty singly linked list" {
+    var list = SinglyLinkedList.new();
+    const allocator = std.testing.allocator;
+    const listValues = [_]u8{ 2, 3 };
+
+    // Add elements to list first
+    for (listValues) |value| {
+        try list.append(allocator, value);
+    }
+
+    // Delete 0th element
+    try list.delete(allocator, 0);
+
+    // Check that the list length has decreased by one
+    try std.testing.expectEqual(listValues.len - 1, list.len);
+
+    // Check that the list contains the expected value
+    try std.testing.expectEqual(listValues[1], try list.get(0));
+
+    // Free list
+    try list.free(allocator);
 }
