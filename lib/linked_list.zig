@@ -101,6 +101,12 @@ const SinglyLinkedList = struct {
         // Modify the `next` field of the node at `idx - 1` to point to the new node
         traversalPtr.?.next = node;
     }
+
+    fn delete(self: SinglyLinkedList, idx: usize) Error!void {
+        if (idx >= self.len) {
+            return Error.OutOfBounds;
+        }
+    }
 };
 
 test "create singly linked list" {
@@ -205,4 +211,10 @@ test "insert element at index in middle of singly linked list" {
 
     // Free list
     try list.free(allocator);
+}
+
+test "return out of bounds error delete index" {
+    var list = SinglyLinkedList.new();
+    const ret = list.delete(0);
+    try std.testing.expectError(SinglyLinkedList.Error.OutOfBounds, ret);
 }
