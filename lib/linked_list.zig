@@ -112,6 +112,24 @@ const SinglyLinkedList = struct {
             allocator.destroy(self.head.?);
             self.head = newHead;
             self.len -= 1;
+            return;
+        }
+
+        if (idx == self.len - 1) {
+            // Get pointer to penultimate node
+            var traversalPtr = self.head;
+            var count: usize = 0;
+            while (count < self.len - 2) : (count += 1) {
+                traversalPtr = traversalPtr.?.next;
+            }
+            // Make penultimate node's `next` field be null
+            traversalPtr.?.next = null;
+            // Deallocate old last node using the tail
+            allocator.destroy(self.tail.?);
+            // Reassign the tail to be the new last node
+            self.tail = traversalPtr;
+            // Decrement length by one
+            self.len -= 1;
         }
     }
 };
@@ -245,6 +263,31 @@ test "delete 0th element in non-empty singly linked list" {
 
     // Check that the list contains the expected value
     try std.testing.expectEqual(listValues[1], try list.get(0));
+
+    // Free list
+    try list.free(allocator);
+}
+
+test "delete last element in singly linked list" {
+    var list = SinglyLinkedList.new();
+    const allocator = std.testing.allocator;
+    const values = [_]u8{ 1, 2, 3 };
+
+    // Add elements to list first
+    for (values) |value| {
+        try list.append(allocator, value);
+    }
+
+    // Delete last element
+    try list.delete(allocator, values.len - 1);
+
+    // Check that the list length has decreased by one
+    try std.testing.expectEqual(values.len - 1, list.len);
+
+    // Check that the list contains the expected values
+    for (0..values.len - 1) |i| {
+        try std.testing.expectEqual(values[i], try list.get(i));
+    }
 
     // Free list
     try list.free(allocator);
