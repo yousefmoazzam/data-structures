@@ -22,7 +22,7 @@ const SinglyLinkedList = struct {
         };
     }
 
-    fn free(self: *SinglyLinkedList, allocator: std.mem.Allocator) std.mem.Allocator.Error!void {
+    fn free(self: *SinglyLinkedList, allocator: std.mem.Allocator) void {
         // Zero elements in the linked list
         if (self.len == 0) {
             return;
@@ -172,7 +172,7 @@ test "append elements to singly linked list" {
     }
 
     // Free linked list
-    try list.free(allocator);
+    list.free(allocator);
 }
 
 test "free multi-element singly linked list" {
@@ -186,7 +186,7 @@ test "free multi-element singly linked list" {
     }
 
     // Free linked list and check that it is empty
-    try list.free(allocator);
+    list.free(allocator);
     try std.testing.expectEqual(0, list.len);
 }
 
@@ -212,7 +212,7 @@ test "prepend elements to singly linked list" {
     }
 
     // Free linked list
-    try list.free(allocator);
+    list.free(allocator);
 }
 
 test "return out of bound error insert index" {
@@ -228,7 +228,7 @@ test "insert element at index equal to length of singly linked list" {
     const allocator = std.testing.allocator;
     try list.insert(allocator, 0, value);
     try std.testing.expectEqual(value, try list.get(0));
-    try list.free(allocator);
+    list.free(allocator);
 }
 
 test "insert element at index in middle of singly linked list" {
@@ -249,7 +249,7 @@ test "insert element at index in middle of singly linked list" {
     try std.testing.expectEqual(valuesToAdd[3], try list.get(middleIndex));
 
     // Free list
-    try list.free(allocator);
+    list.free(allocator);
 }
 
 test "return out of bounds error delete index" {
@@ -279,7 +279,7 @@ test "delete 0th element in non-empty singly linked list" {
     try std.testing.expectEqual(listValues[1], try list.get(0));
 
     // Free list
-    try list.free(allocator);
+    list.free(allocator);
 }
 
 test "delete last element in singly linked list" {
@@ -304,7 +304,7 @@ test "delete last element in singly linked list" {
     }
 
     // Free list
-    try list.free(allocator);
+    list.free(allocator);
 }
 
 test "delete middle index in non-empty linked list" {
@@ -328,5 +328,5 @@ test "delete middle index in non-empty linked list" {
     try std.testing.expectEqual(listValues[2], try list.get(1));
 
     // Free list
-    try list.free(allocator);
+    list.free(allocator);
 }
