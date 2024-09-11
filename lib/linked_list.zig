@@ -115,14 +115,17 @@ const SinglyLinkedList = struct {
             return;
         }
 
+        // Get pointer to node before the node to delete
+        var traversalPtr = self.head;
+        var count: usize = 0;
+        while (count < idx - 1) : (count += 1) {
+            traversalPtr = traversalPtr.?.next;
+        }
+
         if (idx == self.len - 1) {
-            // Get pointer to penultimate node
-            var traversalPtr = self.head;
-            var count: usize = 0;
-            while (count < self.len - 2) : (count += 1) {
-                traversalPtr = traversalPtr.?.next;
-            }
-            // Make penultimate node's `next` field be null
+            // The node before the one to delete in this case is the penultimate node. Because
+            // it's the penultimate node, it'll be the last node after deletion, so set its
+            // `next` field to null
             traversalPtr.?.next = null;
             // Deallocate old last node using the tail
             allocator.destroy(self.tail.?);
@@ -130,7 +133,18 @@ const SinglyLinkedList = struct {
             self.tail = traversalPtr;
             // Decrement length by one
             self.len -= 1;
+            return;
         }
+
+        // If execution has reached this point, the node to delete must be at an index in the
+        // middle of the list
+        //
+        // Modify the `next` field of the node at `idx - 1` to refer to the node at `idx + 1`
+        const nodeToRemovePtr = traversalPtr.?.next;
+        traversalPtr.?.next = nodeToRemovePtr.?.next;
+        // Delete node at `idx`
+        allocator.destroy(nodeToRemovePtr.?);
+        self.len -= 1;
     }
 };
 
@@ -288,6 +302,30 @@ test "delete last element in singly linked list" {
     for (0..values.len - 1) |i| {
         try std.testing.expectEqual(values[i], try list.get(i));
     }
+
+    // Free list
+    try list.free(allocator);
+}
+
+test "delete middle index in non-empty linked list" {
+    var list = SinglyLinkedList.new();
+    const allocator = std.testing.allocator;
+    const listValues = [_]u8{ 4, 5, 6 };
+
+    // Add elements to list first
+    for (listValues) |value| {
+        try list.append(allocator, value);
+    }
+
+    // Delete middle index
+    try list.delete(allocator, 1);
+
+    // Check that the list length has decreased by one
+    try std.testing.expectEqual(listValues.len - 1, list.len);
+
+    // Check that the list contains the expected values
+    try std.testing.expectEqual(listValues[0], try list.get(0));
+    try std.testing.expectEqual(listValues[2], try list.get(1));
 
     // Free list
     try list.free(allocator);
