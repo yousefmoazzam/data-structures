@@ -13,6 +13,10 @@ const Stack = struct {
         return Stack{ .list = list.SinglyLinkedList.new() };
     }
 
+    fn free(self: *Stack, allocator: std.mem.Allocator) void {
+        self.list.free(allocator);
+    }
+
     fn size(self: Stack) usize {
         return self.list.len;
     }
@@ -59,4 +63,14 @@ test "push element onto stack" {
     const value = 5;
     try stack.push(allocator, value);
     try std.testing.expectEqual(value, try stack.peek());
+    stack.free(allocator);
+}
+
+test "free non-empty stack resets size" {
+    var stack = Stack.new();
+    const allocator = std.testing.allocator;
+    const value = 5;
+    try stack.push(allocator, value);
+    stack.free(allocator);
+    try std.testing.expectEqual(0, stack.size());
 }
