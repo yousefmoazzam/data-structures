@@ -1,6 +1,6 @@
 const std = @import("std");
 
-const SinglyLinkedList = struct {
+pub const SinglyLinkedList = struct {
     const Node = struct {
         value: u8,
         next: ?*Node,
@@ -14,7 +14,7 @@ const SinglyLinkedList = struct {
     head: ?*Node,
     tail: ?*Node,
 
-    fn new() SinglyLinkedList {
+    pub fn new() SinglyLinkedList {
         return SinglyLinkedList{
             .len = 0,
             .head = null,
@@ -22,7 +22,7 @@ const SinglyLinkedList = struct {
         };
     }
 
-    fn free(self: *SinglyLinkedList, allocator: std.mem.Allocator) void {
+    pub fn free(self: *SinglyLinkedList, allocator: std.mem.Allocator) void {
         // Zero elements in the linked list
         if (self.len == 0) {
             return;
@@ -39,7 +39,7 @@ const SinglyLinkedList = struct {
         self.len = 0;
     }
 
-    fn get(self: SinglyLinkedList, idx: usize) Error!u8 {
+    pub fn get(self: SinglyLinkedList, idx: usize) Error!u8 {
         if (idx >= self.len) {
             return Error.OutOfBounds;
         }
@@ -52,7 +52,7 @@ const SinglyLinkedList = struct {
         return node.?.value;
     }
 
-    fn append(self: *SinglyLinkedList, allocator: std.mem.Allocator, value: u8) std.mem.Allocator.Error!void {
+    pub fn append(self: *SinglyLinkedList, allocator: std.mem.Allocator, value: u8) std.mem.Allocator.Error!void {
         var node = try allocator.create(Node);
         node.value = value;
         node.next = null;
@@ -67,7 +67,7 @@ const SinglyLinkedList = struct {
         self.len += 1;
     }
 
-    fn prepend(self: *SinglyLinkedList, allocator: std.mem.Allocator, value: u8) std.mem.Allocator.Error!void {
+    pub fn prepend(self: *SinglyLinkedList, allocator: std.mem.Allocator, value: u8) std.mem.Allocator.Error!void {
         var node = try allocator.create(Node);
         node.value = value;
         node.next = self.head;
@@ -75,7 +75,7 @@ const SinglyLinkedList = struct {
         self.len += 1;
     }
 
-    fn insert(self: *SinglyLinkedList, allocator: std.mem.Allocator, idx: usize, value: u8) (std.mem.Allocator.Error || Error)!void {
+    pub fn insert(self: *SinglyLinkedList, allocator: std.mem.Allocator, idx: usize, value: u8) (std.mem.Allocator.Error || Error)!void {
         if (idx > self.len) {
             return Error.OutOfBounds;
         }
@@ -102,7 +102,7 @@ const SinglyLinkedList = struct {
         traversalPtr.?.next = node;
     }
 
-    fn delete(self: *SinglyLinkedList, allocator: std.mem.Allocator, idx: usize) Error!void {
+    pub fn delete(self: *SinglyLinkedList, allocator: std.mem.Allocator, idx: usize) Error!void {
         if (idx >= self.len) {
             return Error.OutOfBounds;
         }
