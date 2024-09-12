@@ -6,7 +6,7 @@ pub const SinglyLinkedList = struct {
         next: ?*Node,
     };
 
-    const Error = error{
+    pub const Error = error{
         OutOfBounds,
     };
 

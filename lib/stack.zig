@@ -17,10 +17,28 @@ const Stack = struct {
         return self.list.len;
     }
 
-    fn peek(self: Stack) Error!void {
+    fn peek(self: Stack) Error!u8 {
         if (self.size() == 0) {
             return Error.EmptyStack;
         }
+
+        if (self.list.get(0)) |value| {
+            return value;
+        } else |_| {
+            // The only error in the error set that `SinglyLinkedList.get()` can return is
+            // `OutOfBounds`. Furthermore, because `peek()` is only ever getting index 0, the
+            // only way an error can be returned from calling `SinglyLinkedList.get()` is if
+            // the linked list is empty. However, this has already been handled at the start of
+            // the method, returning an `EmptyStack` error.
+            //
+            // Therefore, an error should never be returned at this point, so this else branch
+            // should be considered unreachable.
+            unreachable;
+        }
+    }
+
+    fn push(self: *Stack, allocator: std.mem.Allocator, value: u8) std.mem.Allocator.Error!void {
+        try self.list.append(allocator, value);
     }
 };
 
@@ -33,4 +51,12 @@ test "return error if peeking on empty stack" {
     const stack = Stack.new();
     const ret = stack.peek();
     try std.testing.expectError(Stack.Error.EmptyStack, ret);
+}
+
+test "push element onto stack" {
+    var stack = Stack.new();
+    const allocator = std.testing.allocator;
+    const value = 5;
+    try stack.push(allocator, value);
+    try std.testing.expectEqual(value, try stack.peek());
 }
