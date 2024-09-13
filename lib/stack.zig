@@ -44,6 +44,12 @@ const Stack = struct {
     fn push(self: *Stack, allocator: std.mem.Allocator, value: u8) std.mem.Allocator.Error!void {
         try self.list.prepend(allocator, value);
     }
+
+    fn pop(self: Stack) Error!void {
+        if (self.list.len == 0) {
+            return Error.EmptyStack;
+        }
+    }
 };
 
 test "create stack" {
@@ -93,4 +99,10 @@ test "free non-empty stack resets size" {
     try stack.push(allocator, value);
     stack.free(allocator);
     try std.testing.expectEqual(0, stack.size());
+}
+
+test "return error if popping empty stack" {
+    var stack = Stack.new();
+    const ret = stack.pop();
+    try std.testing.expectError(Stack.Error.EmptyStack, ret);
 }
