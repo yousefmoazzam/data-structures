@@ -45,9 +45,25 @@ const Stack = struct {
         try self.list.prepend(allocator, value);
     }
 
-    fn pop(self: Stack) Error!void {
+    fn pop(self: *Stack, allocator: std.mem.Allocator) Error!u8 {
         if (self.list.len == 0) {
             return Error.EmptyStack;
+        }
+
+        const element = try self.peek();
+        if (self.list.delete(allocator, 0)) |_| {
+            return element;
+        } else |_| {
+            // The only error in the error set that `SinglyLinkedList.delete()` can return is
+            // `OutOfBounds`. Furthermore, because `Stack.pop()` is only ever calling
+            // `SinglyLinkedList.delete()` on index 0, the only way an error can be returned
+            // from calling `SinglyLinkedList.delete()` is if the linked list is empty.
+            // However, this has already been handled at the start of the method, returning an
+            // `EmptyStack` error.
+            //
+            // Therefore, an error should never be returned at this point, so this else branch
+            // should be considered unreachable.
+            unreachable;
         }
     }
 };
@@ -103,6 +119,26 @@ test "free non-empty stack resets size" {
 
 test "return error if popping empty stack" {
     var stack = Stack.new();
-    const ret = stack.pop();
+    const allocator = std.testing.allocator;
+    const ret = stack.pop(allocator);
     try std.testing.expectError(Stack.Error.EmptyStack, ret);
+}
+
+test "pop elements off of multi-element stack" {
+    var stack = Stack.new();
+    const allocator = std.testing.allocator;
+    const values = [_]u8{ 4, 5 };
+
+    // Push element onto stack
+    for (values) |value| {
+        try stack.push(allocator, value);
+    }
+
+    for (0..values.len) |i| {
+        // Pop element off the stack and check it's the expected value
+        try std.testing.expectEqual(values[values.len - 1 - i], try stack.pop(allocator));
+
+        // Check stack size has reduced by one
+        try std.testing.expectEqual(values.len - 1 - i, stack.size());
+    }
 }
