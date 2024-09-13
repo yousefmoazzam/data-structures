@@ -42,7 +42,7 @@ const Stack = struct {
     }
 
     fn push(self: *Stack, allocator: std.mem.Allocator, value: u8) std.mem.Allocator.Error!void {
-        try self.list.append(allocator, value);
+        try self.list.prepend(allocator, value);
     }
 };
 
@@ -57,12 +57,32 @@ test "return error if peeking on empty stack" {
     try std.testing.expectError(Stack.Error.EmptyStack, ret);
 }
 
-test "push element onto stack" {
+test "push one element onto stack" {
     var stack = Stack.new();
     const allocator = std.testing.allocator;
     const value = 5;
     try stack.push(allocator, value);
     try std.testing.expectEqual(value, try stack.peek());
+    stack.free(allocator);
+}
+
+test "push multiple elements onto stack" {
+    var stack = Stack.new();
+    const allocator = std.testing.allocator;
+    const values = [_]u8{ 2, 3 };
+
+    // Push values onto stack
+    for (values) |value| {
+        try stack.push(allocator, value);
+    }
+
+    // Check stack is expected size
+    try std.testing.expectEqual(values.len, stack.size());
+
+    // Check top of stack is the expected element
+    try std.testing.expectEqual(values[values.len - 1], try stack.peek());
+
+    // Free stack
     stack.free(allocator);
 }
 
