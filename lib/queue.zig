@@ -13,6 +13,10 @@ const Queue = struct {
         return Queue{ .list = linked_list.SinglyLinkedList.new() };
     }
 
+    fn free(self: *Queue, allocator: std.mem.Allocator) void {
+        self.list.free(allocator);
+    }
+
     fn peek(self: Queue) Error!u8 {
         if (self.list.len == 0) {
             return Error.EmptyQueue;
@@ -60,4 +64,20 @@ test "enqueue one element to queue" {
     try queue.enqueue(allocator, value);
     try std.testing.expectEqual(1, queue.size());
     try std.testing.expectEqual(value, try queue.peek());
+    queue.free(allocator);
+}
+
+test "free non-empty queue resets size" {
+    var queue = Queue.new();
+    const allocator = std.testing.allocator;
+    const value = 4;
+
+    // Enqueue element first
+    try queue.enqueue(allocator, value);
+
+    // Free the queue
+    queue.free(allocator);
+
+    // Check that the queue size has reset to 0
+    try std.testing.expectEqual(0, queue.size());
 }
