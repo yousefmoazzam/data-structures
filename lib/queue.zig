@@ -61,6 +61,22 @@ const Queue = struct {
             unreachable;
         }
 
+        // Check back of queue
+        if (self.list.get(self.list.len - 1)) |head| {
+            if (head == value) {
+                return self.list.len - 1;
+            }
+        } else |_| {
+            // The only error in the error set that `SinglyLinkedList.get()` can return is
+            // `OutOfBounds`. Furthermore, because the use of `get()` here is only ever getting
+            // the index equal to the length of the list minus 1 (which is always a valid index
+            // in the list, it's the last index), the `OutOfBounds` error will never occur.
+            //
+            // Therefore, an error should never be returned at this point, so this else branch
+            // should be considered unreachable.
+            unreachable;
+        }
+
         // Iterate through elements in the queue and check if the given value appears
         // anywhere
         var traversalPtr = self.list.head;
@@ -157,6 +173,23 @@ test "search for element that is at front of queue" {
 
     // Search for element that should be at the front of the queue
     try std.testing.expectEqual(0, queue.search(values[0]));
+
+    // Free queue
+    queue.free(allocator);
+}
+
+test "search for element that is at back of queue" {
+    var queue = Queue.new();
+    const allocator = std.testing.allocator;
+    const values = [_]u8{ 4, 5 };
+
+    // Enqueue elements
+    for (values) |value| {
+        try queue.enqueue(allocator, value);
+    }
+
+    // Search for element that should be at the back of the queue;
+    try std.testing.expectEqual(values.len - 1, queue.search(values[values.len - 1]));
 
     // Free queue
     queue.free(allocator);
