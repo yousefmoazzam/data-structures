@@ -77,14 +77,15 @@ const Queue = struct {
             unreachable;
         }
 
-        // Iterate through elements in the queue and check if the given value appears
-        // anywhere
-        var traversalPtr = self.list.head;
-        var count: usize = 0;
+        // Iterate through elements in the queue (starting at the element after the head,
+        // because the head has already been checked earlier in the method) and check if the
+        // given value appears anywhere prior to the tail (no need to check the tail as that
+        // has also been checked earlier in the method)
+        var traversalPtr = self.list.head.?.next;
+        var count: usize = 1;
         while (count < self.list.len - 1) : (count += 1) {
             if (traversalPtr.?.value == value) {
-                // TODO: Return index
-                return 0;
+                return count;
             }
             traversalPtr = traversalPtr.?.next;
         }
@@ -190,6 +191,25 @@ test "search for element that is at back of queue" {
 
     // Search for element that should be at the back of the queue;
     try std.testing.expectEqual(values.len - 1, queue.search(values[values.len - 1]));
+
+    // Free queue
+    queue.free(allocator);
+}
+
+test "search for elements in middle of queue" {
+    var queue = Queue.new();
+    const allocator = std.testing.allocator;
+    const values = [_]u8{ 3, 4, 5, 6 };
+
+    // Enqueue elements
+    for (values) |value| {
+        try queue.enqueue(allocator, value);
+    }
+
+    // Search for both elements that should be in the middle of the queue and check that
+    // they're at the expected indices
+    try std.testing.expectEqual(1, queue.search(values[1]));
+    try std.testing.expectEqual(2, queue.search(values[2]));
 
     // Free queue
     queue.free(allocator);
