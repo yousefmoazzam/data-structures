@@ -7,6 +7,7 @@ const Queue = struct {
 
     const Error = error{
         EmptyQueue,
+        ElementNotFound,
     };
 
     fn new() Queue {
@@ -37,10 +38,25 @@ const Queue = struct {
         }
     }
 
-    fn search(self: Queue) Error!void {
+    fn search(self: Queue, value: u8) Error!void {
         if (self.size() == 0) {
             return Error.EmptyQueue;
         }
+
+        // Iterate through elements in the queue and check if the given value appears
+        // anywhere
+        var traversalPtr = self.list.head;
+        var count: usize = 0;
+        while (count < self.list.len - 1) : (count += 1) {
+            if (traversalPtr.?.value == value) {
+                // TODO: Return index
+                return;
+            }
+            traversalPtr = traversalPtr.?.next;
+        }
+        // The entire queue has been traversed and the element hasn't been found, so return an
+        // error indicating that the given element isn't in the queue
+        return Error.ElementNotFound;
     }
 
     fn size(self: Queue) usize {
@@ -90,6 +106,23 @@ test "free non-empty queue resets size" {
 
 test "return error for search in empty queue" {
     const queue = Queue.new();
-    const ret = queue.search();
+    const ret = queue.search(3);
     try std.testing.expectError(Queue.Error.EmptyQueue, ret);
+}
+
+test "return error for search of non-existent element in non-empty queue" {
+    var queue = Queue.new();
+    const allocator = std.testing.allocator;
+    const valueInQueue = 5;
+    const valueNotInQueue = 6;
+
+    // Enqueue element onto queue
+    try queue.enqueue(allocator, valueInQueue);
+
+    // Search for element that isn't in the queue
+    const ret = queue.search(valueNotInQueue);
+    try std.testing.expectError(Queue.Error.ElementNotFound, ret);
+
+    // Free queue
+    queue.free(allocator);
 }
