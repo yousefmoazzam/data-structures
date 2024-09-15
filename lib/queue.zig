@@ -37,6 +37,12 @@ const Queue = struct {
         }
     }
 
+    fn search(self: Queue) Error!void {
+        if (self.size() == 0) {
+            return Error.EmptyQueue;
+        }
+    }
+
     fn size(self: Queue) usize {
         return self.list.len;
     }
@@ -80,4 +86,10 @@ test "free non-empty queue resets size" {
 
     // Check that the queue size has reset to 0
     try std.testing.expectEqual(0, queue.size());
+}
+
+test "return error for search in empty queue" {
+    const queue = Queue.new();
+    const ret = queue.search();
+    try std.testing.expectError(Queue.Error.EmptyQueue, ret);
 }
