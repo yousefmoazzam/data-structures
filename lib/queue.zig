@@ -38,9 +38,27 @@ const Queue = struct {
         }
     }
 
-    fn search(self: Queue, value: u8) Error!void {
+    fn search(self: Queue, value: u8) Error!usize {
         if (self.size() == 0) {
             return Error.EmptyQueue;
+        }
+
+        // Check front of queue
+        if (self.list.get(0)) |head| {
+            if (head == value) {
+                return 0;
+            }
+        } else |_| {
+            // The only error in the error set that `SinglyLinkedList.get()` can return is
+            // `OutOfBounds`. Furthermore, because the use of `get()` here is only ever getting
+            // index 0, the only way an error can be returned from calling
+            // `SinglyLinkedList.get()` is if the linked list is empty. However, this has
+            // already been handled at the start of the method, returning an `EmptyQueue`
+            // error.
+            //
+            // Therefore, an error should never be returned at this point, so this else branch
+            // should be considered unreachable.
+            unreachable;
         }
 
         // Iterate through elements in the queue and check if the given value appears
@@ -50,7 +68,7 @@ const Queue = struct {
         while (count < self.list.len - 1) : (count += 1) {
             if (traversalPtr.?.value == value) {
                 // TODO: Return index
-                return;
+                return 0;
             }
             traversalPtr = traversalPtr.?.next;
         }
@@ -122,6 +140,23 @@ test "return error for search of non-existent element in non-empty queue" {
     // Search for element that isn't in the queue
     const ret = queue.search(valueNotInQueue);
     try std.testing.expectError(Queue.Error.ElementNotFound, ret);
+
+    // Free queue
+    queue.free(allocator);
+}
+
+test "search for element that is at front of queue" {
+    var queue = Queue.new();
+    const allocator = std.testing.allocator;
+    const values = [_]u8{ 2, 3 };
+
+    // Enqueue elements
+    for (values) |value| {
+        try queue.enqueue(allocator, value);
+    }
+
+    // Search for element that should be at the front of the queue
+    try std.testing.expectEqual(0, queue.search(values[0]));
 
     // Free queue
     queue.free(allocator);
