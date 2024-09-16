@@ -101,6 +101,12 @@ const Queue = struct {
     fn enqueue(self: *Queue, allocator: std.mem.Allocator, value: u8) std.mem.Allocator.Error!void {
         try self.list.append(allocator, value);
     }
+
+    fn dequeue(self: Queue) Error!void {
+        if (self.list.len == 0) {
+            return Error.EmptyQueue;
+        }
+    }
 };
 
 test "create queue" {
@@ -213,4 +219,10 @@ test "search for elements in middle of queue" {
 
     // Free queue
     queue.free(allocator);
+}
+
+test "return empty error when dequeue from empty queue" {
+    const queue = Queue.new();
+    const ret = queue.dequeue();
+    try std.testing.expectError(Queue.Error.EmptyQueue, ret);
 }
