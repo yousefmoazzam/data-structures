@@ -102,9 +102,35 @@ const Queue = struct {
         try self.list.append(allocator, value);
     }
 
-    fn dequeue(self: Queue) Error!void {
+    fn dequeue(self: *Queue, allocator: std.mem.Allocator) Error!u8 {
         if (self.list.len == 0) {
             return Error.EmptyQueue;
+        }
+
+        if (self.list.get(0)) |value| {
+            if (self.list.delete(allocator, 0)) |_| {
+                return value;
+            } else |_| {
+                // The only error in the error set that `SinglyLinkedList.get()` can return is
+                // `OutOfBounds`. The use of `delete()` here is only ever deleting index 0
+                // (which is always a valid index in a non-empty list), and it has already been
+                // checked earlier in the method that the list's length is not zero, so the
+                // `OutOfBounds` error will never occur.
+                //
+                // Therefore, an error should never be returned at this point, so this else
+                // branch should be considered unreachable.
+                unreachable;
+            }
+        } else |_| {
+            // The only error in the error set that `SinglyLinkedList.get()` can return is
+            // `OutOfBounds`. Furthermore, because the use of `get()` here is only ever getting
+            // index 0 (which is always a valid index in a non-empty list), and it has already
+            // been checked earlier in the method that the list's length is not zero, the
+            // `OutOfBounds` error will never occur.
+            //
+            // Therefore, an error should never be returned at this point, so this else branch
+            // should be considered unreachable.
+            unreachable;
         }
     }
 };
@@ -222,7 +248,27 @@ test "search for elements in middle of queue" {
 }
 
 test "return empty error when dequeue from empty queue" {
-    const queue = Queue.new();
-    const ret = queue.dequeue();
+    var queue = Queue.new();
+    const allocator = std.testing.allocator;
+    const ret = queue.dequeue(allocator);
     try std.testing.expectError(Queue.Error.EmptyQueue, ret);
+}
+
+test "dequeue multiple elements from queue" {
+    var queue = Queue.new();
+    const allocator = std.testing.allocator;
+    const values = [_]u8{ 5, 6, 7 };
+
+    // Enqueue elements
+    for (values) |value| {
+        try queue.enqueue(allocator, value);
+    }
+
+    // Dequeue one element at a time, checking both:
+    // - the length of the queue
+    // - the expected element that has been dequeued
+    for (0..values.len) |i| {
+        try std.testing.expectEqual(values[i], try queue.dequeue(allocator));
+        try std.testing.expectEqual(values.len - 1 - i, queue.size());
+    }
 }
