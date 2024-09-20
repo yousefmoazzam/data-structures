@@ -11,7 +11,8 @@ pub const DynamicArray = struct {
     slice: []u8,
 
     pub fn new(allocator: std.mem.Allocator, len: usize) std.mem.Allocator.Error!DynamicArray {
-        const slice = try allocator.alloc(u8, len * 2);
+        const slice_len = if (len == 0) 2 else len * 2;
+        const slice = try allocator.alloc(u8, slice_len);
         return DynamicArray{
             .len = len,
             .slice = slice,
@@ -175,6 +176,16 @@ test "return error on out of bounds slice" {
     var arr = try DynamicArray.new(allocator, len);
     const ret = arr.get_slice(0, len);
     try std.testing.expectError(DynamicArrayError.OutOfBounds, ret);
+    try arr.free(allocator);
+}
+
+test "append element to empty array" {
+    const allocator = std.testing.allocator;
+    var arr = try DynamicArray.new(allocator, 0);
+    const value = 5;
+    try arr.append(allocator, value);
+    try std.testing.expectEqual(1, arr.len);
+    try std.testing.expectEqual(value, arr.get(0));
     try arr.free(allocator);
 }
 
