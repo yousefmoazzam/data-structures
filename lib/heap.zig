@@ -141,6 +141,9 @@ test "enqueue elements onto binary heap" {
         try heap.enqueue(allocator, values[i]);
         try std.testing.expectEqual(expectedHighestPriority[i], try heap.peek());
     }
+
+    // Free heap
+    try heap.free(allocator);
 }
 
 test "freeing heap resets heap to empty" {
