@@ -112,10 +112,29 @@ const BinaryHeap = struct {
         }
     }
 
-    pub fn dequeue(self: BinaryHeap) Error!void {
+    pub fn dequeue(self: *BinaryHeap) Error!u8 {
         if (self.isEmpty()) {
             return Error.EmptyHeap;
         }
+
+        if (self.arr.len == 1) {
+            if (self.arr.get(0)) |value| {
+                // If execution has reached here, then `self.arr.len = 1`, so deleting the 0th
+                // index element using `DynamicArray.delete(0)` should never return an
+                // `OutOfBounds` error. Hence, unreachable.
+                if (self.arr.delete(0)) |_| {} else |_| unreachable;
+                return value;
+            } else |_| {
+                // If execution has reached here, then `self.arr.len = 1`, so getting the 0th
+                // index element using `DynamicArray.get(0)` should never return an
+                // `OutOfBounds` error. Hence, unreachable.
+                unreachable;
+            }
+        }
+
+        // TODO: Swap value with root value, remove + return, then bubble-down new root value.
+        // For now, to satisfy the return type, return any `u8` value
+        return 0;
     }
 };
 
@@ -174,4 +193,21 @@ test "return empty error if dequeueing from empty heap" {
     var heap = try BinaryHeap.new(allocator);
     const ret = heap.dequeue();
     try std.testing.expectError(BinaryHeap.Error.EmptyHeap, ret);
+}
+
+test "dequeue only element from single element heap" {
+    const allocator = std.testing.allocator;
+    var heap = try BinaryHeap.new(allocator);
+    const value = 6;
+
+    // Enqueue element
+    try heap.enqueue(allocator, value);
+
+    // Dequeue element, and verify the value is the one expected, and also that the heap is now
+    // empty
+    try std.testing.expectEqual(value, try heap.dequeue());
+    try std.testing.expectEqual(true, heap.isEmpty());
+
+    // Free heap
+    try heap.free(allocator);
 }
