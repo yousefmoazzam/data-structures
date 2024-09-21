@@ -111,6 +111,12 @@ const BinaryHeap = struct {
             }
         }
     }
+
+    pub fn dequeue(self: BinaryHeap) Error!void {
+        if (self.isEmpty()) {
+            return Error.EmptyHeap;
+        }
+    }
 };
 
 test "create binary heap" {
@@ -161,4 +167,11 @@ test "freeing heap resets heap to empty" {
 
     // Check that the heap is empty
     try std.testing.expectEqual(true, heap.isEmpty());
+}
+
+test "return empty error if dequeueing from empty heap" {
+    const allocator = std.testing.allocator;
+    var heap = try BinaryHeap.new(allocator);
+    const ret = heap.dequeue();
+    try std.testing.expectError(BinaryHeap.Error.EmptyHeap, ret);
 }
