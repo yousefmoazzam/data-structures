@@ -21,6 +21,7 @@ pub const DynamicArray = struct {
 
     pub fn free(self: *DynamicArray, allocator: std.mem.Allocator) std.mem.Allocator.Error!void {
         allocator.free(self.slice);
+        self.slice = try allocator.alloc(u8, 0);
         self.len = 0;
     }
 
@@ -48,7 +49,8 @@ pub const DynamicArray = struct {
     pub fn append(self: *DynamicArray, allocator: std.mem.Allocator, value: u8) std.mem.Allocator.Error!void {
         if (self.len == self.slice.len) {
             // Allocate new larger slice
-            const slice = try allocator.alloc(u8, self.len * 2);
+            const new_len = if (self.len == 0) 2 else self.len * 2;
+            const slice = try allocator.alloc(u8, new_len);
             // Copy values from existing slice into new slice
             for (0..self.slice.len) |i| {
                 slice[i] = self.slice[i];
@@ -417,4 +419,32 @@ test "freeing non-empty array resets length to zero" {
 
     // Check length of array is reset to zero
     try std.testing.expectEqual(0, arr.len);
+}
+
+test "reuse array after free" {
+    const allocator = std.testing.allocator;
+    var arr = try DynamicArray.new(allocator, 0);
+    const values = [_]u8{ 2, 3 };
+
+    // Append values to array
+    for (values) |value| {
+        try arr.append(allocator, value);
+    }
+
+    // Free array
+    try arr.free(allocator);
+
+    // Reuse array by re-appending values
+    for (values) |value| {
+        try arr.append(allocator, value);
+    }
+
+    // Check length and elements are as expected
+    try std.testing.expectEqual(values.len, arr.len);
+    for (0..values.len) |i| {
+        try std.testing.expectEqual(values[i], try arr.get(i));
+    }
+
+    // Free array to avoid memory leak causing failing test
+    try arr.free(allocator);
 }
