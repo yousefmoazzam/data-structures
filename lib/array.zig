@@ -11,8 +11,7 @@ pub const DynamicArray = struct {
     slice: []u8,
 
     pub fn new(allocator: std.mem.Allocator, len: usize) std.mem.Allocator.Error!DynamicArray {
-        const slice_len = if (len == 0) 2 else len * 2;
-        const slice = try allocator.alloc(u8, slice_len);
+        const slice = try allocator.alloc(u8, len);
         return DynamicArray{
             .len = len,
             .slice = slice,
