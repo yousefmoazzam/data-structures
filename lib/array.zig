@@ -19,8 +19,9 @@ pub const DynamicArray = struct {
         };
     }
 
-    pub fn free(self: DynamicArray, allocator: std.mem.Allocator) std.mem.Allocator.Error!void {
+    pub fn free(self: *DynamicArray, allocator: std.mem.Allocator) std.mem.Allocator.Error!void {
         allocator.free(self.slice);
+        self.len = 0;
     }
 
     pub fn set(self: DynamicArray, idx: usize, value: u8) DynamicArrayError!void {
@@ -113,7 +114,7 @@ pub const DynamicArray = struct {
 test "create dynamic array with given length" {
     const len = 5;
     const allocator = std.testing.allocator;
-    const arr = try DynamicArray.new(allocator, len);
+    var arr = try DynamicArray.new(allocator, len);
     try std.testing.expect(arr.len == len);
     try arr.free(allocator);
 }
@@ -399,4 +400,21 @@ test "delete element at start of array" {
 
     // Free testing array
     try arr.free(allocator);
+}
+
+test "freeing non-empty array resets length to zero" {
+    const allocator = std.testing.allocator;
+    var arr = try DynamicArray.new(allocator, 0);
+    const values = [_]u8{ 1, 2, 3 };
+
+    // Append values to array
+    for (values) |value| {
+        try arr.append(allocator, value);
+    }
+
+    // Free array
+    try arr.free(allocator);
+
+    // Check length of array is reset to zero
+    try std.testing.expectEqual(0, arr.len);
 }
