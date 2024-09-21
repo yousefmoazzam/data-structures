@@ -13,6 +13,10 @@ const BinaryHeap = struct {
         return BinaryHeap{ .arr = try array.DynamicArray.new(allocator, 0) };
     }
 
+    pub fn free(self: *BinaryHeap, allocator: std.mem.Allocator) std.mem.Allocator.Error!void {
+        try self.arr.free(allocator);
+    }
+
     pub fn isEmpty(self: BinaryHeap) bool {
         return self.arr.len == 0;
     }
@@ -137,4 +141,21 @@ test "enqueue elements onto binary heap" {
         try heap.enqueue(allocator, values[i]);
         try std.testing.expectEqual(expectedHighestPriority[i], try heap.peek());
     }
+}
+
+test "freeing heap resets heap to empty" {
+    const allocator = std.testing.allocator;
+    var heap = try BinaryHeap.new(allocator);
+    const values = [_]u8{ 1, 2, 3 };
+
+    // Enqueue elements
+    for (values) |value| {
+        try heap.enqueue(allocator, value);
+    }
+
+    // Free heap
+    try heap.free(allocator);
+
+    // Check that the heap is empty
+    try std.testing.expectEqual(true, heap.isEmpty());
 }
