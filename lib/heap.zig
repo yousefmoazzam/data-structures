@@ -5,6 +5,7 @@ const array = @import("array.zig");
 const BinaryHeap = struct {
     const Error = error{
         EmptyHeap,
+        ElementNotFound,
     };
 
     arr: array.DynamicArray,
@@ -224,10 +225,24 @@ const BinaryHeap = struct {
         }
     }
 
-    pub fn remove(self: BinaryHeap) Error!void {
+    pub fn remove(self: BinaryHeap, value: u8) Error!void {
         if (self.isEmpty()) {
             return Error.EmptyHeap;
         }
+
+        // The underlying dynamic array has already been determined to not be zero-length, so
+        // index 0 is within bounds. Also, the end index of "array length -1" is always within
+        // bounds. Therefore, there's no way for this use of `DynamicArray.get_slice()` to
+        // return `OutOfBounds`. Hence, unreachable.
+        const fullArrSlice = if (self.arr.get_slice(0, self.arr.len - 1)) |slc| slc else |_| unreachable;
+        for (fullArrSlice) |elem| {
+            // TODO: Handle when the given value to remove is found in the heap
+            if (elem == value) {}
+        }
+
+        // The given element to remove hasn't been found in the heap, so return an "element not
+        // found" error
+        return Error.ElementNotFound;
     }
 };
 
@@ -332,6 +347,27 @@ test "dequeue multiple elements from binary heap" {
 test "return error if removing element from empty heap" {
     const allocator = std.testing.allocator;
     const heap = try BinaryHeap.new(allocator);
-    const ret = heap.remove();
+    const ret = heap.remove(3);
     try std.testing.expectError(BinaryHeap.Error.EmptyHeap, ret);
+}
+
+test "return error if removing element that isn't in heap" {
+    const allocator = std.testing.allocator;
+    var heap = try BinaryHeap.new(allocator);
+    const values = [_]u8{ 4, 8, 2, 3, 3, 9 };
+    const nonExistentElementToRemove = 5;
+
+    // Enqueue elements
+    for (values) |value| {
+        try heap.enqueue(allocator, value);
+    }
+
+    // Attempt to remove non-existent element in heap
+    const ret = heap.remove(nonExistentElementToRemove);
+
+    // Check that an "element not found" error is returned
+    try std.testing.expectError(BinaryHeap.Error.ElementNotFound, ret);
+
+    // Free heap
+    try heap.free(allocator);
 }
