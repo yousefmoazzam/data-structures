@@ -223,6 +223,12 @@ const BinaryHeap = struct {
             }
         }
     }
+
+    pub fn remove(self: BinaryHeap) Error!void {
+        if (self.isEmpty()) {
+            return Error.EmptyHeap;
+        }
+    }
 };
 
 test "create binary heap" {
@@ -321,4 +327,11 @@ test "dequeue multiple elements from binary heap" {
 
     // Free heap
     try heap.free(allocator);
+}
+
+test "return error if removing element from empty heap" {
+    const allocator = std.testing.allocator;
+    const heap = try BinaryHeap.new(allocator);
+    const ret = heap.remove();
+    try std.testing.expectError(BinaryHeap.Error.EmptyHeap, ret);
 }
