@@ -54,12 +54,12 @@ const BinaryHeap = struct {
         // Execution reaches here if the heap now has two or more elements. Bubble-up the newly
         // added element to its correct position based on its priority (which in turn is based
         // on the value of the `u8`)
-        self.bubble_up(value);
+        self.bubble_up(value, self.arr.len - 1);
     }
 
-    fn bubble_up(self: *BinaryHeap, value: u8) void {
+    fn bubble_up(self: *BinaryHeap, value: u8, index: usize) void {
         var hasFinishedBubbling = false;
-        var idx = self.arr.len - 1;
+        var idx = index;
 
         while (!hasFinishedBubbling) {
             // `idx = 0` can't occur here when beginning bubbling-up, since `bubble_up()` is
