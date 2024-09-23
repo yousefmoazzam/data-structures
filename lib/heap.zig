@@ -153,15 +153,15 @@ const BinaryHeap = struct {
         if (self.arr.delete(self.arr.len - 1)) |_| {} else |_| unreachable;
 
         // Bubble-down new root value
-        self.bubble_down(value_to_swap);
+        self.bubble_down(value_to_swap, 0);
 
         // Return the value that was removed
         return value_to_dequeue;
     }
 
-    fn bubble_down(self: *BinaryHeap, newRoot: u8) void {
+    fn bubble_down(self: *BinaryHeap, newRoot: u8, index: usize) void {
         var hasFinishedBubbling = false;
-        var idx: usize = 0;
+        var idx: usize = index;
 
         while (!hasFinishedBubbling) {
             const leftChildIdx = 2 * idx + 1;
