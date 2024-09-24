@@ -160,7 +160,7 @@ const BinaryHeap = struct {
         return value_to_dequeue;
     }
 
-    fn bubble_down(self: *BinaryHeap, newRoot: u8, index: usize) void {
+    fn bubble_down(self: *BinaryHeap, value: u8, index: usize) void {
         var hasFinishedBubbling = false;
         var idx: usize = index;
 
@@ -182,15 +182,15 @@ const BinaryHeap = struct {
                 // If only the right child index is past the end of the array but the left
                 // child is within the array, then only the left child exists and thus must be
                 // the one to compare with in the bubbling-down process.
-                const childValue = if (self.arr.get(leftChildIdx)) |value| value else |_| unreachable;
-                if (newRoot > childValue) {
+                const childValue = if (self.arr.get(leftChildIdx)) |val| val else |_| unreachable;
+                if (value > childValue) {
                     // Swap value and child value
                     //
                     // If the left child index is within the bounds of the array, then so must
                     // the parent of it. This means that an `OutOfBounds` error for the use of
                     // `DynamicArray.set`()` isn't possible. Hence, unreachable.
                     if (self.arr.set(idx, childValue)) |_| {} else |_| unreachable;
-                    if (self.arr.set(leftChildIdx, newRoot)) |_| {} else |_| unreachable;
+                    if (self.arr.set(leftChildIdx, value)) |_| {} else |_| unreachable;
                 }
 
                 // Because there was only one child element in the swap above, bubbling-down
@@ -208,14 +208,14 @@ const BinaryHeap = struct {
                 // Find which child element is smaller
                 const smallerChildIdx = if (leftChildValue < rightChildValue) leftChildIdx else rightChildIdx;
                 const smallerChildValue = if (smallerChildIdx == leftChildIdx) leftChildValue else rightChildValue;
-                if (newRoot > smallerChildValue) {
+                if (value > smallerChildValue) {
                     // Swap value and child value
                     //
                     // Both the smaller child index and the index of the bubbled-down value
                     // must be within the bounds of the array, so `OutOfBounds` shouldn't be
                     // returned by `DynamicArray.set()` in either case. Hence, unreachable.
                     if (self.arr.set(idx, smallerChildValue)) |_| {} else |_| unreachable;
-                    if (self.arr.set(smallerChildIdx, newRoot)) |_| {} else |_| unreachable;
+                    if (self.arr.set(smallerChildIdx, value)) |_| {} else |_| unreachable;
                 }
 
                 // Carry onto the next iteration to check the new children indices and see if
