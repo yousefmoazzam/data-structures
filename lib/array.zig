@@ -39,7 +39,7 @@ pub const DynamicArray = struct {
     }
 
     pub fn get_slice(self: DynamicArray, start: usize, stop: usize) DynamicArrayError![]u8 {
-        if (stop >= self.len) {
+        if (stop > self.len) {
             return DynamicArrayError.OutOfBounds;
         }
         return self.slice[start..stop];
@@ -172,11 +172,35 @@ test "get slice of dynamic array" {
     try arr.free(allocator);
 }
 
+test "get slice to full data underneath dynamic array" {
+    const len = 4;
+    const allocator = std.testing.allocator;
+    var arr = try DynamicArray.new(allocator, len);
+    const values = [_]u8{ 1, 2, 3, 4 };
+
+    // Set values in the dynamic array to check later in the slice of the array
+    for (0..values.len) |i| {
+        try arr.set(i, values[i]);
+    }
+
+    // Get slice and check that the length matches the full data
+    const slice = try arr.get_slice(0, len);
+    try std.testing.expectEqual(len, slice.len);
+
+    // Compare values in slice to expected values
+    for (slice, 0..) |value, i| {
+        try std.testing.expectEqual(values[i], value);
+    }
+
+    // Free array
+    try arr.free(allocator);
+}
+
 test "return error on out of bounds slice" {
     const len = 2;
     const allocator = std.testing.allocator;
     var arr = try DynamicArray.new(allocator, len);
-    const ret = arr.get_slice(0, len);
+    const ret = arr.get_slice(0, len + 1);
     try std.testing.expectError(DynamicArrayError.OutOfBounds, ret);
     try arr.free(allocator);
 }
