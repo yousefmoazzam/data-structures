@@ -225,19 +225,24 @@ const BinaryHeap = struct {
         }
     }
 
-    pub fn remove(self: BinaryHeap, value: u8) Error!void {
+    pub fn remove(self: *BinaryHeap, value: u8) Error!void {
         if (self.isEmpty()) {
             return Error.EmptyHeap;
         }
 
-        // The underlying dynamic array has already been determined to not be zero-length, so
-        // index 0 is within bounds. Also, the end index of "array length -1" is always within
-        // bounds. Therefore, there's no way for this use of `DynamicArray.get_slice()` to
-        // return `OutOfBounds`. Hence, unreachable.
-        const fullArrSlice = if (self.arr.get_slice(0, self.arr.len - 1)) |slc| slc else |_| unreachable;
-        for (fullArrSlice) |elem| {
-            // TODO: Handle when the given value to remove is found in the heap
-            if (elem == value) {}
+        // Check if element to remove is the root, in which case we can dequeue instead
+        if (self.peek()) |root| {
+            if (root == value) {
+                // An empty heap has already been handled at the start of the method, so
+                // dequeueing can't return `EmptyHeap`. Hence, unreachable.
+                if (self.dequeue()) |_| {} else |_| unreachable;
+                return;
+            }
+        } else |_| {
+            // The underlying dynamic array has already been determined to not be zero-length,
+            // so index 0 is within bounds. This means peeking can't return `EmptyHeap`, hence,
+            // unreachable.
+            unreachable;
         }
 
         // The given element to remove hasn't been found in the heap, so return an "element not
@@ -346,7 +351,7 @@ test "dequeue multiple elements from binary heap" {
 
 test "return error if removing element from empty heap" {
     const allocator = std.testing.allocator;
-    const heap = try BinaryHeap.new(allocator);
+    var heap = try BinaryHeap.new(allocator);
     const ret = heap.remove(3);
     try std.testing.expectError(BinaryHeap.Error.EmptyHeap, ret);
 }
@@ -367,6 +372,24 @@ test "return error if removing element that isn't in heap" {
 
     // Check that an "element not found" error is returned
     try std.testing.expectError(BinaryHeap.Error.ElementNotFound, ret);
+
+    // Free heap
+    try heap.free(allocator);
+}
+
+test "remove element that happens to be root element of heap" {
+    const allocator = std.testing.allocator;
+    var heap = try BinaryHeap.new(allocator);
+    const values = [_]u8{ 6, 3, 12, 5, 1, 7 };
+
+    // Enqueue values
+    for (values) |value| {
+        try heap.enqueue(allocator, value);
+    }
+
+    // Remove root element 1, and peek to check that the new root is the expected value 3
+    try heap.remove(1);
+    try std.testing.expectEqual(3, try heap.peek());
 
     // Free heap
     try heap.free(allocator);
