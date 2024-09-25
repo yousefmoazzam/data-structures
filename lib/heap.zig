@@ -58,6 +58,17 @@ const BinaryHeap = struct {
         self.bubble_up(value, self.arr.len - 1);
     }
 
+    /// Get the index of the parent element. Assumes that `idx` is not zero.
+    fn get_parent_index(idx: usize) usize {
+        // When `idx = 1`, the defn of the two bindings are simpler:
+        // - will be a left child, so `isRightChild = false`
+        // - there's only one other value which is the parent, and so the parent index must be
+        // 0
+        const isRightChild = if (idx == 1) false else (idx % 2 == 0);
+        const parentIdx = if (idx == 1) 0 else (if (isRightChild) (idx - 2) / 2 else (idx - 1) / 2);
+        return parentIdx;
+    }
+
     fn bubble_up(self: *BinaryHeap, value: u8, index: usize) void {
         var hasFinishedBubbling = false;
         var idx = index;
@@ -74,12 +85,7 @@ const BinaryHeap = struct {
             // bubbling-up again.
             if (idx == 0) unreachable;
 
-            // When `idx = 1`, the defn of the two bindings are simpler:
-            // - will be a left child, so `isRightChild = false`
-            // - there's only one other value which is the parent, and so the parent index must
-            // be 0
-            const isRightChild = if (idx == 1) false else (idx % 2 == 0);
-            const parentIdx = if (idx == 1) 0 else (if (isRightChild) (idx - 2) / 2 else (idx - 1) / 2);
+            const parentIdx = get_parent_index(idx);
 
             // Check if newly added value is less than the value of its parent
             if (self.arr.get(parentIdx)) |parent| {
