@@ -251,9 +251,101 @@ const BinaryHeap = struct {
             unreachable;
         }
 
-        // The given element to remove hasn't been found in the heap, so return an "element not
-        // found" error
-        return Error.ElementNotFound;
+        // If execution has reached here, then the element to remove is not the root.
+        var idx: usize = 0;
+
+        // The underlying dynamic array has already been determined to not be zero-length, so
+        // index 0 is within bounds. Also, the end index `self.arr.len` is always within
+        // bounds due to `get_slice()` replicating the exclusion of the last element (like zig
+        // ranges do). Therefore, there's no way for this use of `DynamicArray.get_slice()` to
+        // return `OutOfBounds`. Hence, unreachable.
+        const fullArrSlice = if (self.arr.get_slice(0, self.arr.len)) |slc| slc else |_| unreachable;
+        for (fullArrSlice[1..], 1..) |elem, i| {
+            if (elem == value) {
+                // Store index of value for later, after the element has been been removed and
+                // when it needs to be decided if bubbling-up/down must be done
+                idx = i;
+
+                // Replace value to remove with value at end of the underlying dynamic array
+                const endValue = fullArrSlice[fullArrSlice.len - 1];
+                fullArrSlice[i] = endValue;
+
+                // Remove value
+                //
+                // The index "array length - 1" should always be within bounds, so
+                // `DynamicArray.delete(self.arr.len - 1)` should never return an `OutOfBounds`
+                // error. Hence, unreachable.
+                if (self.arr.delete(self.arr.len - 1)) |_| {} else |_| unreachable;
+                break;
+            }
+        }
+
+        // Check if `idx` is still 0. If it is, then the given element to remove hasn't been
+        // found in the heap, so return an "element not found" error
+        if (idx == 0) return Error.ElementNotFound;
+
+        // If `idx` is non-zero, then the value was found in the heap. Check if value that is
+        // now where the value to remove was originally needs to be bubbled-down or up
+
+        // Check parent element. Because we have already dealt with the case of the element to
+        // remove being the root, we can assume here that the element is not the root and thus
+        // must have a parent element.
+        //
+        // Get parent index
+        const parentIdx = get_parent_index(idx);
+        // If `idx` is within bounds, then the parent index should be. So, `DynamicArray.get()`
+        // shouldn't return an `OutOfBounds` error here. Hence, unreachable.
+        const parentValue = if (self.arr.get(parentIdx)) |val| val else |_| unreachable;
+
+        // Compare value of parent with value that has been put in place of the value that was
+        // removed
+        //
+        // If value is smaller than parent, then bubble-up and return
+        if (value < parentValue) {
+            self.bubble_up(value, idx);
+            return;
+        }
+
+        // If execution has reached here, then the value couldn't be bubbled-up. So, now check
+        // if the value can be bubbled-down.
+
+        // Check if there are any children (if not, can't bubble-down)
+        const leftChildIdx = idx * 2 + 1;
+        const rightChildIdx = idx * 2 + 2;
+        if (leftChildIdx < self.arr.len) {
+            // Left child exists so can potentially can bubble-down. Compare value with left
+            // child to see if value is greater than left child or not
+            //
+            // The left child index has already been confirmed to be within bounds of the
+            // dynamic array, so `DynamicArray.get()` shouldn't return an `OutOfBounds` error
+            // here. Hence, unreachable.
+            const leftChildValue = if (self.arr.get(leftChildIdx)) |val| val else |_| unreachable;
+            if (value > leftChildValue) {
+                self.bubble_down(value, idx);
+                return;
+            }
+
+            // If execution has gotten here, then the value was not larger than the left child.
+            //
+            // Now need to check if right child index is within bounds or not
+            if (rightChildIdx < self.arr.len) {
+                // If right child is within bounds, then compare value with right child now
+                //
+                // The right child index has already been confirmed to be within bounds of the
+                // dynamic array, so `DynamicArray.get()` shouldn't return an `OutOfBounds`
+                // error here. Hence, unreachable.
+                const rightChildValue = if (self.arr.get(rightChildIdx)) |val| val else |_| unreachable;
+                if (value > rightChildValue) {
+                    self.bubble_down(value, idx);
+                    return;
+                }
+            }
+            // If right child index is not within bounds, then there are no child nodes and we
+            // can't bubble-down. Getting this far means that the element's position already
+            // satisfies the heap invariant and that there's nothing else that needs to be
+            // done.
+            return;
+        }
     }
 };
 
@@ -396,6 +488,32 @@ test "remove element that happens to be root element of heap" {
     // Remove root element 1, and peek to check that the new root is the expected value 3
     try heap.remove(1);
     try std.testing.expectEqual(3, try heap.peek());
+
+    // Free heap
+    try heap.free(allocator);
+}
+
+test "remove element that exists in heap from heap" {
+    const allocator = std.testing.allocator;
+    var heap = try BinaryHeap.new(allocator);
+    const values = [_]u8{ 6, 3, 12, 5, 1, 7 };
+    const elementsToRemove = [_]u8{ 6, 12, 1 };
+    const orderedElementsToDequeue = [_]u8{ 3, 5, 7 };
+
+    // Enqueue values
+    for (values) |value| {
+        try heap.enqueue(allocator, value);
+    }
+
+    // Remove half the elements from heap
+    for (elementsToRemove) |value| {
+        try heap.remove(value);
+    }
+
+    // Dequeue the other half of elements, and check that the order is as expected
+    for (orderedElementsToDequeue) |value| {
+        try std.testing.expectEqual(value, try heap.dequeue());
+    }
 
     // Free heap
     try heap.free(allocator);
