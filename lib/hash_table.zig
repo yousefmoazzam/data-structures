@@ -33,6 +33,12 @@ pub fn HashTable(comptime T: type) type {
             };
         }
 
+        pub fn free(self: *Self, allocator: std.mem.Allocator) std.mem.Allocator.Error!void {
+            allocator.free(self.slice);
+            self.slice = try allocator.alloc(T, 0);
+            self.size = 0;
+        }
+
         pub fn put(self: *Self, allocator: std.mem.Allocator, key: u8, value: T) std.mem.Allocator.Error!void {
             if (self.size == 0) {
                 self.slice = try allocator.alloc(T, 5);
@@ -64,4 +70,13 @@ test "put single key-value pair into hash table" {
     var hash_table = try HashTable(u8).new(allocator);
     try hash_table.put(allocator, 0, 6);
     try std.testing.expectEqual(1, hash_table.size);
+    try hash_table.free(allocator);
+}
+
+test "freeing non-empty hash table resets size to zero" {
+    const allocator = std.testing.allocator;
+    var hash_table = try HashTable(u8).new(allocator);
+    try hash_table.put(allocator, 0, 6);
+    try hash_table.free(allocator);
+    try std.testing.expectEqual(0, hash_table.size);
 }
