@@ -87,6 +87,8 @@ pub fn SinglyLinkedList(comptime T: type) type {
                 return self.append(allocator, value);
             }
 
+            if (idx == 0) return self.prepend(allocator, value);
+
             var node = try allocator.create(Node);
             node.value = value;
 
@@ -251,6 +253,26 @@ test "insert element at index in middle of singly linked list" {
 
     // Check that inserted value is at expected middle index
     try std.testing.expectEqual(valuesToAdd[3], try list.get(middleIndex));
+
+    // Free list
+    list.free(allocator);
+}
+
+test "insert element at index zero of non-empty list" {
+    var list = SinglyLinkedList(u8).new();
+    const values = [_]u8{ 4, 5, 6 };
+    const allocator = std.testing.allocator;
+
+    // Insert all values at index 0 (should produce the same outcome as prepending all values
+    // to list)
+    for (values) |value| {
+        try list.insert(allocator, 0, value);
+    }
+
+    // Check the order of elements is as expected
+    for (0..values.len) |i| {
+        try std.testing.expectEqual(values[values.len - 1 - i], try list.get(i));
+    }
 
     // Free list
     list.free(allocator);
