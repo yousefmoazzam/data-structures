@@ -1,5 +1,10 @@
 const std = @import("std");
 
+/// Reduce `key` modulo `n`
+fn modulo_hash(key: u8, n: usize) usize {
+    return key % n;
+}
+
 /// Hash table "type constructor". Creates a hash table type with keys of type `u8` and values
 /// of type `T`
 pub fn HashTable(comptime T: type) type {
@@ -27,6 +32,16 @@ pub fn HashTable(comptime T: type) type {
                 .slice = vals,
             };
         }
+
+        pub fn put(self: *Self, allocator: std.mem.Allocator, key: u8, value: T) std.mem.Allocator.Error!void {
+            if (self.size == 0) {
+                self.slice = try allocator.alloc(T, 5);
+            }
+
+            const hash = modulo_hash(key, self.slice.len);
+            self.slice[hash] = value;
+            self.size += 1;
+        }
     };
 }
 
@@ -42,4 +57,11 @@ test "create empty hash table" {
     const allocator = std.testing.allocator;
     const hash_table = try HashTable(u8).new(allocator);
     try std.testing.expectEqual(0, hash_table.size);
+}
+
+test "put single key-value pair into hash table" {
+    const allocator = std.testing.allocator;
+    var hash_table = try HashTable(u8).new(allocator);
+    try hash_table.put(allocator, 0, 6);
+    try std.testing.expectEqual(1, hash_table.size);
 }
