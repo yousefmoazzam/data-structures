@@ -3,7 +3,7 @@ const std = @import("std");
 const linked_list = @import("linked_list.zig");
 
 const Queue = struct {
-    list: linked_list.SinglyLinkedList,
+    list: linked_list.SinglyLinkedList(u8),
 
     const Error = error{
         EmptyQueue,
@@ -11,7 +11,7 @@ const Queue = struct {
     };
 
     fn new() Queue {
-        return Queue{ .list = linked_list.SinglyLinkedList.new() };
+        return Queue{ .list = linked_list.SinglyLinkedList(u8).new() };
     }
 
     fn free(self: *Queue, allocator: std.mem.Allocator) void {

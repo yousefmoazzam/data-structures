@@ -1,160 +1,164 @@
 const std = @import("std");
 
-pub const SinglyLinkedList = struct {
-    const Node = struct {
-        value: u8,
-        next: ?*Node,
-    };
-
-    pub const Error = error{
-        OutOfBounds,
-    };
-
-    len: usize,
-    head: ?*Node,
-    tail: ?*Node,
-
-    pub fn new() SinglyLinkedList {
-        return SinglyLinkedList{
-            .len = 0,
-            .head = null,
-            .tail = null,
+pub fn SinglyLinkedList(comptime T: type) type {
+    return struct {
+        const Node = struct {
+            value: T,
+            next: ?*Node,
         };
-    }
 
-    pub fn free(self: *SinglyLinkedList, allocator: std.mem.Allocator) void {
-        // Zero elements in the linked list
-        if (self.len == 0) {
-            return;
+        pub const Error = error{
+            OutOfBounds,
+        };
+
+        len: usize,
+        head: ?*Node,
+        tail: ?*Node,
+
+        const Self = @This();
+
+        pub fn new() Self {
+            return Self{
+                .len = 0,
+                .head = null,
+                .tail = null,
+            };
         }
 
-        // One or more elements in the linked list
-        var next = self.head.?.next;
-        while (next != null) {
+        pub fn free(self: *Self, allocator: std.mem.Allocator) void {
+            // Zero elements in the linked list
+            if (self.len == 0) {
+                return;
+            }
+
+            // One or more elements in the linked list
+            var next = self.head.?.next;
+            while (next != null) {
+                allocator.destroy(self.head.?);
+                self.head = next;
+                next = self.head.?.next;
+            }
             allocator.destroy(self.head.?);
-            self.head = next;
-            next = self.head.?.next;
-        }
-        allocator.destroy(self.head.?);
-        self.len = 0;
-    }
-
-    pub fn get(self: SinglyLinkedList, idx: usize) Error!u8 {
-        if (idx >= self.len) {
-            return Error.OutOfBounds;
+            self.len = 0;
         }
 
-        var node = self.head;
-        var i: usize = 0;
-        while (i < idx) : (i += 1) {
-            node = node.?.next;
+        pub fn get(self: Self, idx: usize) Error!T {
+            if (idx >= self.len) {
+                return Error.OutOfBounds;
+            }
+
+            var node = self.head;
+            var i: usize = 0;
+            while (i < idx) : (i += 1) {
+                node = node.?.next;
+            }
+            return node.?.value;
         }
-        return node.?.value;
-    }
 
-    pub fn append(self: *SinglyLinkedList, allocator: std.mem.Allocator, value: u8) std.mem.Allocator.Error!void {
-        var node = try allocator.create(Node);
-        node.value = value;
-        node.next = null;
+        pub fn append(self: *Self, allocator: std.mem.Allocator, value: T) std.mem.Allocator.Error!void {
+            var node = try allocator.create(Node);
+            node.value = value;
+            node.next = null;
 
-        if (self.len == 0) {
+            if (self.len == 0) {
+                self.head = node;
+            } else {
+                self.tail.?.next = node;
+            }
+
+            self.tail = node;
+            self.len += 1;
+        }
+
+        pub fn prepend(self: *Self, allocator: std.mem.Allocator, value: T) std.mem.Allocator.Error!void {
+            var node = try allocator.create(Node);
+            node.value = value;
+            node.next = self.head;
             self.head = node;
-        } else {
-            self.tail.?.next = node;
+            self.len += 1;
         }
 
-        self.tail = node;
-        self.len += 1;
-    }
+        pub fn insert(self: *Self, allocator: std.mem.Allocator, idx: usize, value: T) (std.mem.Allocator.Error || Error)!void {
+            if (idx > self.len) {
+                return Error.OutOfBounds;
+            }
 
-    pub fn prepend(self: *SinglyLinkedList, allocator: std.mem.Allocator, value: u8) std.mem.Allocator.Error!void {
-        var node = try allocator.create(Node);
-        node.value = value;
-        node.next = self.head;
-        self.head = node;
-        self.len += 1;
-    }
+            if (idx == self.len) {
+                return self.append(allocator, value);
+            }
 
-    pub fn insert(self: *SinglyLinkedList, allocator: std.mem.Allocator, idx: usize, value: u8) (std.mem.Allocator.Error || Error)!void {
-        if (idx > self.len) {
-            return Error.OutOfBounds;
+            var node = try allocator.create(Node);
+            node.value = value;
+
+            // Traverse list until the index before the index to insert new value at
+            var traversalPtr = self.head;
+            var count: usize = 0;
+            while (count < idx - 1) : (count += 1) {
+                // If execution gets past the first two `if` conditions earlier in the method, all
+                // nodes traversed in this while loop should not be null, so `.?` is safe to do
+                // here and won't ever cause a panic I think
+                traversalPtr = traversalPtr.?.next;
+            }
+            // Make the `next` field of the new node point to the node that is currently at `idx`
+            node.next = traversalPtr.?.next;
+            // Modify the `next` field of the node at `idx - 1` to point to the new node
+            traversalPtr.?.next = node;
         }
 
-        if (idx == self.len) {
-            return self.append(allocator, value);
-        }
+        pub fn delete(self: *Self, allocator: std.mem.Allocator, idx: usize) Error!void {
+            if (idx >= self.len) {
+                return Error.OutOfBounds;
+            }
 
-        var node = try allocator.create(Node);
-        node.value = value;
+            if (idx == 0) {
+                const newHead = self.head.?.next;
+                allocator.destroy(self.head.?);
+                self.head = newHead;
+                self.len -= 1;
+                return;
+            }
 
-        // Traverse list until the index before the index to insert new value at
-        var traversalPtr = self.head;
-        var count: usize = 0;
-        while (count < idx - 1) : (count += 1) {
-            // If execution gets past the first two `if` conditions earlier in the method, all
-            // nodes traversed in this while loop should not be null, so `.?` is safe to do
-            // here and won't ever cause a panic I think
-            traversalPtr = traversalPtr.?.next;
-        }
-        // Make the `next` field of the new node point to the node that is currently at `idx`
-        node.next = traversalPtr.?.next;
-        // Modify the `next` field of the node at `idx - 1` to point to the new node
-        traversalPtr.?.next = node;
-    }
+            // Get pointer to node before the node to delete
+            var traversalPtr = self.head;
+            var count: usize = 0;
+            while (count < idx - 1) : (count += 1) {
+                traversalPtr = traversalPtr.?.next;
+            }
 
-    pub fn delete(self: *SinglyLinkedList, allocator: std.mem.Allocator, idx: usize) Error!void {
-        if (idx >= self.len) {
-            return Error.OutOfBounds;
-        }
+            if (idx == self.len - 1) {
+                // The node before the one to delete in this case is the penultimate node. Because
+                // it's the penultimate node, it'll be the last node after deletion, so set its
+                // `next` field to null
+                traversalPtr.?.next = null;
+                // Deallocate old last node using the tail
+                allocator.destroy(self.tail.?);
+                // Reassign the tail to be the new last node
+                self.tail = traversalPtr;
+                // Decrement length by one
+                self.len -= 1;
+                return;
+            }
 
-        if (idx == 0) {
-            const newHead = self.head.?.next;
-            allocator.destroy(self.head.?);
-            self.head = newHead;
+            // If execution has reached this point, the node to delete must be at an index in the
+            // middle of the list
+            //
+            // Modify the `next` field of the node at `idx - 1` to refer to the node at `idx + 1`
+            const nodeToRemovePtr = traversalPtr.?.next;
+            traversalPtr.?.next = nodeToRemovePtr.?.next;
+            // Delete node at `idx`
+            allocator.destroy(nodeToRemovePtr.?);
             self.len -= 1;
-            return;
         }
-
-        // Get pointer to node before the node to delete
-        var traversalPtr = self.head;
-        var count: usize = 0;
-        while (count < idx - 1) : (count += 1) {
-            traversalPtr = traversalPtr.?.next;
-        }
-
-        if (idx == self.len - 1) {
-            // The node before the one to delete in this case is the penultimate node. Because
-            // it's the penultimate node, it'll be the last node after deletion, so set its
-            // `next` field to null
-            traversalPtr.?.next = null;
-            // Deallocate old last node using the tail
-            allocator.destroy(self.tail.?);
-            // Reassign the tail to be the new last node
-            self.tail = traversalPtr;
-            // Decrement length by one
-            self.len -= 1;
-            return;
-        }
-
-        // If execution has reached this point, the node to delete must be at an index in the
-        // middle of the list
-        //
-        // Modify the `next` field of the node at `idx - 1` to refer to the node at `idx + 1`
-        const nodeToRemovePtr = traversalPtr.?.next;
-        traversalPtr.?.next = nodeToRemovePtr.?.next;
-        // Delete node at `idx`
-        allocator.destroy(nodeToRemovePtr.?);
-        self.len -= 1;
-    }
-};
+    };
+}
 
 test "create singly linked list" {
-    const list = SinglyLinkedList.new();
+    const list = SinglyLinkedList(u8).new();
     try std.testing.expectEqual(0, list.len);
 }
 
 test "append elements to singly linked list" {
-    var list = SinglyLinkedList.new();
+    var list = SinglyLinkedList(u8).new();
     const valuesToAppend = [_]u8{ 4, 5, 6 };
     const allocator = std.testing.allocator;
 
@@ -176,7 +180,7 @@ test "append elements to singly linked list" {
 }
 
 test "free multi-element singly linked list" {
-    var list = SinglyLinkedList.new();
+    var list = SinglyLinkedList(u8).new();
     const valuesToAppend = [_]u8{ 1, 2 };
     const allocator = std.testing.allocator;
 
@@ -191,13 +195,13 @@ test "free multi-element singly linked list" {
 }
 
 test "return out of bounds error get index" {
-    const list = SinglyLinkedList.new();
+    const list = SinglyLinkedList(u8).new();
     const ret = list.get(0);
-    try std.testing.expectError(SinglyLinkedList.Error.OutOfBounds, ret);
+    try std.testing.expectError(SinglyLinkedList(u8).Error.OutOfBounds, ret);
 }
 
 test "prepend elements to singly linked list" {
-    var list = SinglyLinkedList.new();
+    var list = SinglyLinkedList(u8).new();
     const valuesToPrepend = [_]u8{ 6, 7, 8 };
     const allocator = std.testing.allocator;
 
@@ -216,14 +220,14 @@ test "prepend elements to singly linked list" {
 }
 
 test "return out of bound error insert index" {
-    var list = SinglyLinkedList.new();
+    var list = SinglyLinkedList(u8).new();
     const allocator = std.testing.allocator;
     const ret = list.insert(allocator, 1, 5);
-    try std.testing.expectError(SinglyLinkedList.Error.OutOfBounds, ret);
+    try std.testing.expectError(SinglyLinkedList(u8).Error.OutOfBounds, ret);
 }
 
 test "insert element at index equal to length of singly linked list" {
-    var list = SinglyLinkedList.new();
+    var list = SinglyLinkedList(u8).new();
     const value = 5;
     const allocator = std.testing.allocator;
     try list.insert(allocator, 0, value);
@@ -232,7 +236,7 @@ test "insert element at index equal to length of singly linked list" {
 }
 
 test "insert element at index in middle of singly linked list" {
-    var list = SinglyLinkedList.new();
+    var list = SinglyLinkedList(u8).new();
     const valuesToAdd = [_]u8{ 3, 4, 5, 6 };
     const middleIndex = 2;
     const allocator = std.testing.allocator;
@@ -253,14 +257,14 @@ test "insert element at index in middle of singly linked list" {
 }
 
 test "return out of bounds error delete index" {
-    var list = SinglyLinkedList.new();
+    var list = SinglyLinkedList(u8).new();
     const allocator = std.testing.allocator;
     const ret = list.delete(allocator, 0);
-    try std.testing.expectError(SinglyLinkedList.Error.OutOfBounds, ret);
+    try std.testing.expectError(SinglyLinkedList(u8).Error.OutOfBounds, ret);
 }
 
 test "delete 0th element in non-empty singly linked list" {
-    var list = SinglyLinkedList.new();
+    var list = SinglyLinkedList(u8).new();
     const allocator = std.testing.allocator;
     const listValues = [_]u8{ 2, 3 };
 
@@ -283,7 +287,7 @@ test "delete 0th element in non-empty singly linked list" {
 }
 
 test "delete last element in singly linked list" {
-    var list = SinglyLinkedList.new();
+    var list = SinglyLinkedList(u8).new();
     const allocator = std.testing.allocator;
     const values = [_]u8{ 1, 2, 3 };
 
@@ -308,7 +312,7 @@ test "delete last element in singly linked list" {
 }
 
 test "delete middle index in non-empty linked list" {
-    var list = SinglyLinkedList.new();
+    var list = SinglyLinkedList(u8).new();
     const allocator = std.testing.allocator;
     const listValues = [_]u8{ 4, 5, 6 };
 

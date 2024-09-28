@@ -7,10 +7,10 @@ const Stack = struct {
         EmptyStack,
     };
 
-    list: list.SinglyLinkedList,
+    list: list.SinglyLinkedList(u8),
 
     fn new() Stack {
-        return Stack{ .list = list.SinglyLinkedList.new() };
+        return Stack{ .list = list.SinglyLinkedList(u8).new() };
     }
 
     fn free(self: *Stack, allocator: std.mem.Allocator) void {
