@@ -77,9 +77,33 @@ pub fn HashTable(comptime T: type) type {
 
         pub fn get(self: Self, key: u8) T {
             const hash = modulo_hash(key, self.slice.len);
-            // TODO: Properly handle:
-            // - hash collisions
-            // - trying to get value for non-existent key
+            const bucket = self.slice[hash];
+
+            // TODO: Assumes that the bucket associated with the hash value is not empty.
+            // Handle this properly.
+            if (bucket.len == 0) unreachable;
+
+            // Check if the 0th pair in the bucket contains the value requested
+            if (bucket.get(0)) |pair| {
+                if (pair.key == key) return pair.value;
+            } else |_| unreachable;
+
+            // If execution has reached this far then the 0th element in the bucket didn't
+            // contain the requested value, so scan through the bucket starting at index 1 and
+            // search for the pair containing the requested value
+            var traversal_ptr = bucket.head.?.next;
+            var count: usize = 1;
+            while (count < bucket.len) : (count += 1) {
+                if (traversal_ptr.?.value.key == key) {
+                    return traversal_ptr.?.value.value;
+                }
+                traversal_ptr = traversal_ptr.?.next;
+            }
+
+            // TODO: Properly handle trying to get value for non-existent key
+            //
+            // For now, to satisfy the return type needing a `T` returned on all paths of
+            // execution in this function, return the 0th element in the bucket
             const pair = if (self.slice[hash].get(0)) |val| val else |_| unreachable;
             return pair.value;
         }
@@ -127,6 +151,26 @@ test "get single value stored in hash table" {
 
     // Check that the value can be retrieved from the hash table using its associated key
     try std.testing.expectEqual(value, hash_table.get(key));
+
+    // Free hash table
+    try hash_table.free(allocator);
+}
+
+test "put multiple key-value pairs into hash table" {
+    const allocator = std.testing.allocator;
+    var hash_table = try HashTable(u8).new(allocator);
+    const keys = [_]u8{ 0, 1, 2, 3, 4, 5 };
+    const values = [_]u8{ 18, 3, 56, 190, 22, 174 };
+
+    // Put values into hash table
+    for (keys, values) |k, v| {
+        try hash_table.put(allocator, k, v);
+    }
+
+    // Check value associated with each key is as expected
+    for (keys, values) |k, v| {
+        try std.testing.expectEqual(v, hash_table.get(k));
+    }
 
     // Free hash table
     try hash_table.free(allocator);
