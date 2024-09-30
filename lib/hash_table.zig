@@ -7,6 +7,10 @@ fn modulo_hash(key: u8, n: usize) usize {
     return key % n;
 }
 
+pub const Error = error{
+    KeyNotFound,
+};
+
 /// Key-value pair "type constructor". Creates a map type which holds a key (of type `u8`) and
 /// an associated value (of type `T`)
 fn Map(comptime T: type) type {
@@ -92,7 +96,7 @@ pub fn HashTable(comptime T: type) type {
             self.size += 1;
         }
 
-        pub fn get(self: Self, key: u8) T {
+        pub fn get(self: Self, key: u8) Error!T {
             const hash = modulo_hash(key, self.slice.len);
             const bucket = self.slice[hash];
 
@@ -117,12 +121,9 @@ pub fn HashTable(comptime T: type) type {
                 traversal_ptr = traversal_ptr.?.next;
             }
 
-            // TODO: Properly handle trying to get value for non-existent key
-            //
-            // For now, to satisfy the return type needing a `T` returned on all paths of
-            // execution in this function, return the 0th element in the bucket
-            const pair = if (self.slice[hash].get(0)) |val| val else |_| unreachable;
-            return pair.value;
+            // If execution has gotten this far then the requested key doesn't exist in the
+            // hash table. Thus, return an error.
+            return Error.KeyNotFound;
         }
     };
 }
@@ -168,6 +169,26 @@ test "get single value stored in hash table" {
 
     // Check that the value can be retrieved from the hash table using its associated key
     try std.testing.expectEqual(value, hash_table.get(key));
+
+    // Free hash table
+    try hash_table.free(allocator);
+}
+
+test "return error if getting non-existent key-value pair" {
+    const allocator = std.testing.allocator;
+    var hash_table = try HashTable(u8).new(allocator);
+    const existent_keys = [_]u8{ 0, 1, 2, 3, 4 };
+    const non_existent_key = 5;
+    const values = [_]u8{ 29, 10, 33, 21, 64 };
+
+    // Put key-value pairs in hash table
+    for (existent_keys, values) |k, v| {
+        try hash_table.put(allocator, k, v);
+    }
+
+    // Attempt to get non-existent key and check that an error is returned
+    const ret = hash_table.get(non_existent_key);
+    try std.testing.expectEqual(Error.KeyNotFound, ret);
 
     // Free hash table
     try hash_table.free(allocator);
