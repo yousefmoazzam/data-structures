@@ -70,6 +70,23 @@ pub fn HashTable(comptime T: type) type {
             }
 
             const hash = modulo_hash(key, self.slice.len);
+
+            // Search bucket for the key that's been requested to be put into the hash table.
+            // If it's found, the key-value pair already exists, so update the value rather
+            // than appending to the bucket.
+            const bucket = self.slice[hash];
+            var traversal_ptr = bucket.head;
+            var count: usize = 0;
+            while (count < bucket.len) : (count += 1) {
+                if (traversal_ptr.?.value.key == key) {
+                    traversal_ptr.?.value.value = value;
+                    return;
+                }
+            }
+
+            // If execution has reached here then the given key wasn't found in the bucket
+            // associated with the key's hash value, so the key-value pair doesn't exist in the
+            // hash table yet. Thus, append the value to the bucket.
             const pair = Pair{ .key = key, .value = value };
             try self.slice[hash].append(allocator, pair);
             self.size += 1;
@@ -171,6 +188,28 @@ test "put multiple key-value pairs into hash table" {
     for (keys, values) |k, v| {
         try std.testing.expectEqual(v, hash_table.get(k));
     }
+
+    // Free hash table
+    try hash_table.free(allocator);
+}
+
+test "put existing key-value pair updates value" {
+    const allocator = std.testing.allocator;
+    var hash_table = try HashTable(u8).new(allocator);
+    const key = 3;
+    const first_value = 1;
+    const second_value = 6;
+
+    // Put first value for key in hash table
+    try hash_table.put(allocator, key, first_value);
+
+    // Put second value for key in hash table
+    try hash_table.put(allocator, key, second_value);
+
+    // Check that the size hasn't changed, and that the value associated with the key has been
+    // updated
+    try std.testing.expectEqual(1, hash_table.size);
+    try std.testing.expectEqual(second_value, hash_table.get(key));
 
     // Free hash table
     try hash_table.free(allocator);
