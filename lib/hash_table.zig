@@ -9,6 +9,7 @@ fn modulo_hash(key: u8, n: usize) usize {
 
 pub const Error = error{
     KeyNotFound,
+    Empty,
 };
 
 /// Key-value pair "type constructor". Creates a map type which holds a key (of type `u8`) and
@@ -97,6 +98,8 @@ pub fn HashTable(comptime T: type) type {
         }
 
         pub fn get(self: Self, key: u8) Error!T {
+            if (self.slice.len == 0) return Error.Empty;
+
             const hash = modulo_hash(key, self.slice.len);
             const bucket = self.slice[hash];
 
@@ -211,6 +214,13 @@ test "return error if getting non-existent key-value pair from empty bucket" {
 
     // Free hash table
     try hash_table.free(allocator);
+}
+
+test "return error if getting key-value pair from empty hash table" {
+    const allocator = std.testing.allocator;
+    var hash_table = try HashTable(u8).new(allocator);
+    const ret = hash_table.get(0);
+    try std.testing.expectError(Error.Empty, ret);
 }
 
 test "put multiple key-value pairs into hash table" {
