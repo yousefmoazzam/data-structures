@@ -127,8 +127,12 @@ pub fn HashTable(comptime T: type) type {
             return Error.KeyNotFound;
         }
 
-        pub fn delete(self: Self) Error!void {
+        pub fn delete(self: Self, key: u8) Error!void {
             if (self.slice.len == 0) return Error.Empty;
+
+            const hash = modulo_hash(key, self.slice.len);
+            const bucket = self.slice[hash];
+            if (bucket.len == 0) return Error.KeyNotFound;
         }
     };
 }
@@ -272,6 +276,26 @@ test "put existing key-value pair updates value" {
 test "return error if deleting key-value pair from empty hash table" {
     const allocator = std.testing.allocator;
     var hash_table = try HashTable(u8).new(allocator);
-    const ret = hash_table.delete();
+    const ret = hash_table.delete(0);
     try std.testing.expectError(Error.Empty, ret);
+}
+
+test "return error if deleting non-existent key-value pair from empty bucket" {
+    const allocator = std.testing.allocator;
+    var hash_table = try HashTable(u8).new(allocator);
+    const existent_keys = [_]u8{ 0, 1, 2, 3 };
+    const non_existent_key = 4;
+    const values = [_]u8{ 41, 9, 6, 54 };
+
+    // Put key-value pairs into hash table
+    for (existent_keys, values) |k, v| {
+        try hash_table.put(allocator, k, v);
+    }
+
+    // Attempt to delete non-existent key and check that an error is returned
+    const ret = hash_table.delete(non_existent_key);
+    try std.testing.expectError(Error.KeyNotFound, ret);
+
+    // Free hash table
+    try hash_table.free(allocator);
 }
