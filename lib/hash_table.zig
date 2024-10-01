@@ -126,6 +126,10 @@ pub fn HashTable(comptime T: type) type {
             // hash table. Thus, return an error.
             return Error.KeyNotFound;
         }
+
+        pub fn delete(self: Self) Error!void {
+            if (self.slice.len == 0) return Error.Empty;
+        }
     };
 }
 
@@ -263,4 +267,11 @@ test "put existing key-value pair updates value" {
 
     // Free hash table
     try hash_table.free(allocator);
+}
+
+test "return error if deleting key-value pair from empty hash table" {
+    const allocator = std.testing.allocator;
+    var hash_table = try HashTable(u8).new(allocator);
+    const ret = hash_table.delete();
+    try std.testing.expectError(Error.Empty, ret);
 }
