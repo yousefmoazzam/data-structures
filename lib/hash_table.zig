@@ -100,9 +100,7 @@ pub fn HashTable(comptime T: type) type {
             const hash = modulo_hash(key, self.slice.len);
             const bucket = self.slice[hash];
 
-            // TODO: Assumes that the bucket associated with the hash value is not empty.
-            // Handle this properly.
-            if (bucket.len == 0) unreachable;
+            if (bucket.len == 0) return Error.KeyNotFound;
 
             // Check if the 0th pair in the bucket contains the value requested
             if (bucket.get(0)) |pair| {
@@ -174,7 +172,7 @@ test "get single value stored in hash table" {
     try hash_table.free(allocator);
 }
 
-test "return error if getting non-existent key-value pair" {
+test "return error if getting non-existent key-value pair and buckets all populated" {
     const allocator = std.testing.allocator;
     var hash_table = try HashTable(u8).new(allocator);
     const existent_keys = [_]u8{ 0, 1, 2, 3, 4 };
@@ -189,6 +187,27 @@ test "return error if getting non-existent key-value pair" {
     // Attempt to get non-existent key and check that an error is returned
     const ret = hash_table.get(non_existent_key);
     try std.testing.expectEqual(Error.KeyNotFound, ret);
+
+    // Free hash table
+    try hash_table.free(allocator);
+}
+
+test "return error if getting non-existent key-value pair from empty bucket" {
+    const allocator = std.testing.allocator;
+    var hash_table = try HashTable(u8).new(allocator);
+    const existent_keys = [_]u8{ 0, 1, 2, 3 };
+    const non_existent_key = 4;
+    const values = [_]u8{ 6, 12, 45, 7 };
+
+    // Put key-value pairs in hash table
+    for (existent_keys, values) |k, v| {
+        try hash_table.put(allocator, k, v);
+    }
+
+    // Attempt to get non-existent key associated with empty bucket and check that an error is
+    // returned
+    const ret = hash_table.get(non_existent_key);
+    try std.testing.expectError(Error.KeyNotFound, ret);
 
     // Free hash table
     try hash_table.free(allocator);
