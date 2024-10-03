@@ -127,12 +127,35 @@ pub fn HashTable(comptime T: type) type {
             return Error.KeyNotFound;
         }
 
-        pub fn delete(self: Self, key: u8) Error!void {
+        pub fn delete(self: *Self, allocator: std.mem.Allocator, key: u8) Error!void {
             if (self.slice.len == 0) return Error.Empty;
 
             const hash = modulo_hash(key, self.slice.len);
-            const bucket = self.slice[hash];
-            if (bucket.len == 0) return Error.KeyNotFound;
+            // NOTE: Couldn't get this to work with just `var bucket = self.slice[hash]`, was
+            // getting a segfault during `free()` call if `delete()` was called prior to it for
+            // some unknown reason, so have gotten a pointer via `&self.slice[hash]` instead
+            const bucket_ptr = &self.slice[hash];
+            if (bucket_ptr.*.len == 0) return Error.KeyNotFound;
+
+            // Check if the 0th pair in the bucket contains the key requested for deletion
+            if (bucket_ptr.*.get(0)) |pair| {
+                if (pair.key == key) {
+                    // The bucket has been established to not have a length of zero. The
+                    // hardcoded value of 0 being passed to `SinglyLinkedList(u8).delete()`
+                    // means that the only way an `OutOfBounds` error can be returned is if the
+                    // bucket has length zero, which can't happen here. Hence, unreachable.
+                    if (bucket_ptr.*.delete(allocator, 0)) |_| {
+                        self.size -= 1;
+                        return;
+                    } else |_| unreachable;
+                }
+            } else |_| {
+                // The bucket has been established to not have a length of zero. The hardcoded
+                // value of 0 being passed to `SinglyLinkedList(u8).get()` means that the only
+                // way an `OutOfBounds` error can be returned is if the bucket has length zero,
+                // which can't happen here. Hence, unreachable.
+                unreachable;
+            }
         }
     };
 }
@@ -276,7 +299,7 @@ test "put existing key-value pair updates value" {
 test "return error if deleting key-value pair from empty hash table" {
     const allocator = std.testing.allocator;
     var hash_table = try HashTable(u8).new(allocator);
-    const ret = hash_table.delete(0);
+    const ret = hash_table.delete(allocator, 0);
     try std.testing.expectError(Error.Empty, ret);
 }
 
@@ -293,8 +316,27 @@ test "return error if deleting non-existent key-value pair from empty bucket" {
     }
 
     // Attempt to delete non-existent key and check that an error is returned
-    const ret = hash_table.delete(non_existent_key);
+    const ret = hash_table.delete(allocator, non_existent_key);
     try std.testing.expectError(Error.KeyNotFound, ret);
+
+    // Free hash table
+    try hash_table.free(allocator);
+}
+
+test "delete single key-value pair existing in hash table" {
+    const allocator = std.testing.allocator;
+    var hash_table = try HashTable(u8).new(allocator);
+    const key = 3;
+    const value = 6;
+
+    // Put key-value pair into hash table
+    try hash_table.put(allocator, key, value);
+
+    // Delete key-value pair from hash table
+    try hash_table.delete(allocator, key);
+
+    // Check that the size of the hash table has reduced back to zero
+    try std.testing.expectEqual(0, hash_table.size);
 
     // Free hash table
     try hash_table.free(allocator);
