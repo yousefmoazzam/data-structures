@@ -176,6 +176,10 @@ pub fn HashTable(comptime T: type) type {
                 }
                 traversal_ptr = traversal_ptr.?.next;
             }
+
+            // If execution has reached here, then the bucket was non-empty but the key wasn't
+            // found, so return a "key not found" error
+            return Error.KeyNotFound;
         }
     };
 }
@@ -391,6 +395,26 @@ test "delete multiple key-value pairs existing in hash table" {
     for (indices_of_keys_to_keep) |i| {
         try std.testing.expectEqual(values[i], try hash_table.get(keys[i]));
     }
+
+    // Free hash table
+    try hash_table.free(allocator);
+}
+
+test "return error if deleting non-existent key-value pair from non-empty bucket" {
+    const allocator = std.testing.allocator;
+    var hash_table = try HashTable(u8).new(allocator);
+    const keys = [_]u8{ 0, 1, 2, 3, 4 };
+    const values = [_]u8{ 0, 5, 10, 15, 20 };
+    const non_existent_key = 5;
+
+    // Put key-value pairs into hash table
+    for (keys, values) |k, v| {
+        try hash_table.put(allocator, k, v);
+    }
+
+    // Try deleting non-existent key in non-empty bucket and check an error is returned
+    const ret = hash_table.delete(allocator, non_existent_key);
+    try std.testing.expectError(Error.KeyNotFound, ret);
 
     // Free hash table
     try hash_table.free(allocator);
