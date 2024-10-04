@@ -156,6 +156,26 @@ pub fn HashTable(comptime T: type) type {
                 // which can't happen here. Hence, unreachable.
                 unreachable;
             }
+
+            // If execution has reached here, then the key-value pair is not the 0th element in
+            // the bucket, so scan through the bucket and check if the pair is present
+            var traversal_ptr = bucket_ptr.*.head.?.next;
+            var count: usize = 1;
+            while (traversal_ptr != null) : (count += 1) {
+                if (traversal_ptr.?.*.value.key == key) {
+                    if (bucket_ptr.*.delete(allocator, count)) |_| {
+                        self.size -= 1;
+                        return;
+                    } else |_| {
+                        // We have been able to check the key stored in the node at index
+                        // `count` in the bucket, so the node must exist to be deleted. This
+                        // means that an `OutOfBounds` error can't be returned by
+                        // `SinglyLinkedList(T).delete()`. Hence, unreachable.
+                        unreachable;
+                    }
+                }
+                traversal_ptr = traversal_ptr.?.next;
+            }
         }
     };
 }
@@ -337,6 +357,40 @@ test "delete single key-value pair existing in hash table" {
 
     // Check that the size of the hash table has reduced back to zero
     try std.testing.expectEqual(0, hash_table.size);
+
+    // Free hash table
+    try hash_table.free(allocator);
+}
+
+test "delete multiple key-value pairs existing in hash table" {
+    const allocator = std.testing.allocator;
+    var hash_table = try HashTable(u8).new(allocator);
+    const keys = [_]u8{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
+    const values = [_]u8{ 0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50 };
+    const indices_of_keys_to_keep = [_]u8{ 0, 2, 3, 4, 6, 7, 8, 10 };
+    const indices_of_keys_to_delete = [_]u8{ 1, 5, 9 };
+
+    // Put key-value pairs into hash table
+    for (keys, values) |k, v| {
+        try hash_table.put(allocator, k, v);
+    }
+
+    // Delete multiple key-value pairs
+    for (indices_of_keys_to_delete) |i| {
+        try hash_table.delete(allocator, keys[i]);
+    }
+
+    // Check that a `KeyNotFound` error is returned when trying to get the deleted key-value
+    // pairs
+    for (indices_of_keys_to_delete) |i| {
+        try std.testing.expectError(Error.KeyNotFound, hash_table.get(keys[i]));
+    }
+
+    // Check that key-value pairs not requested to be deleted from hash table are still in the
+    // hash table
+    for (indices_of_keys_to_keep) |i| {
+        try std.testing.expectEqual(values[i], try hash_table.get(keys[i]));
+    }
 
     // Free hash table
     try hash_table.free(allocator);
