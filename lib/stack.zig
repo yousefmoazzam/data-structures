@@ -2,26 +2,26 @@ const std = @import("std");
 
 const list = @import("linked_list.zig");
 
-const Stack = struct {
-    const Error = error{
+pub const Stack = struct {
+    pub const Error = error{
         EmptyStack,
     };
 
     list: list.SinglyLinkedList(u8),
 
-    fn new() Stack {
+    pub fn new() Stack {
         return Stack{ .list = list.SinglyLinkedList(u8).new() };
     }
 
-    fn free(self: *Stack, allocator: std.mem.Allocator) void {
+    pub fn free(self: *Stack, allocator: std.mem.Allocator) void {
         self.list.free(allocator);
     }
 
-    fn size(self: Stack) usize {
+    pub fn size(self: Stack) usize {
         return self.list.len;
     }
 
-    fn peek(self: Stack) Error!u8 {
+    pub fn peek(self: Stack) Error!u8 {
         if (self.size() == 0) {
             return Error.EmptyStack;
         }
@@ -41,11 +41,11 @@ const Stack = struct {
         }
     }
 
-    fn push(self: *Stack, allocator: std.mem.Allocator, value: u8) std.mem.Allocator.Error!void {
+    pub fn push(self: *Stack, allocator: std.mem.Allocator, value: u8) std.mem.Allocator.Error!void {
         try self.list.prepend(allocator, value);
     }
 
-    fn pop(self: *Stack, allocator: std.mem.Allocator) Error!u8 {
+    pub fn pop(self: *Stack, allocator: std.mem.Allocator) Error!u8 {
         if (self.list.len == 0) {
             return Error.EmptyStack;
         }
