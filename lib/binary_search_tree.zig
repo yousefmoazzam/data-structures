@@ -1,12 +1,13 @@
 const std = @import("std");
 
-const array = @import("array.zig");
 const stack = @import("stack.zig");
 
 /// Perform inorder traversal of binary tree via recursion (assuming an array representation
 /// for the binary tree)
-fn inorder(allocator: std.mem.Allocator, idx: usize, bst_slice: []u8, iter_slice: []*u8, index_stack: *stack.Stack, count: *usize) std.mem.Allocator.Error!void {
-    try index_stack.*.push(allocator, bst_slice[idx]);
+fn inorder(allocator: std.mem.Allocator, idx: usize, bst_slice: []?u8, iter_slice: []*u8, index_stack: *stack.Stack, count: *usize) std.mem.Allocator.Error!void {
+    // TODO: The value being pushed onto the stack need to be verified to not be `null`, to
+    // justify the unwrapping of the optional being safe to do
+    try index_stack.*.push(allocator, bst_slice[idx].?);
     const left_child_idx: usize = 2 * idx + 1;
 
     // If the left child of current node is within bounds, keep traversing down the left
@@ -25,7 +26,7 @@ fn inorder(allocator: std.mem.Allocator, idx: usize, bst_slice: []u8, iter_slice
         // Hence, unreachable.
         unreachable;
     }
-    iter_slice[count.*] = &bst_slice[idx];
+    iter_slice[count.*] = &bst_slice[idx].?;
     count.* += 1;
 
     // Now need to explore right subtree, so check if the right child index is within bounds or
@@ -42,9 +43,10 @@ pub const InorderTraversalEagerIterator = struct {
     slice: []*u8,
     allocator: std.mem.Allocator,
     current: usize,
+    len: *usize,
 
     pub fn next(self: *InorderTraversalEagerIterator) ?u8 {
-        if (self.current < self.slice.len) {
+        if (self.current < self.len.*) {
             const val = self.slice[self.current].*;
             self.current += 1;
             return val;
@@ -55,54 +57,63 @@ pub const InorderTraversalEagerIterator = struct {
 
     pub fn free(self: InorderTraversalEagerIterator) void {
         self.allocator.free(self.slice);
+        self.allocator.destroy(self.len);
     }
 };
 
 pub const BinarySearchTree = struct {
     allocator: std.mem.Allocator,
-    arr: array.DynamicArray,
+    slice: []?u8,
 
     pub fn new(allocator: std.mem.Allocator) std.mem.Allocator.Error!BinarySearchTree {
-        return BinarySearchTree{ .arr = try array.DynamicArray.new(allocator, 0), .allocator = allocator };
+        return BinarySearchTree{ .slice = try allocator.alloc(?u8, 0), .allocator = allocator };
     }
 
     pub fn insert(self: *BinarySearchTree, value: u8) std.mem.Allocator.Error!void {
         // TODO: Naive insertion implementation, purely to be able to get elements into the
-        // array for the purposes of testing inorder traversal algorithm.
+        // slice for the purposes of testing inorder traversal algorithm.
         //
         // Properly implement this later.
-        try self.arr.append(self.allocator, value);
+        if (self.slice.len == 0) {
+            const slice = try self.allocator.alloc(?u8, 15);
+            for (slice) |*element| {
+                element.* = null;
+            }
+            self.allocator.free(self.slice);
+            self.slice = slice;
+        }
+
+        for (self.slice) |*element| {
+            if (element.* == null) {
+                element.* = value;
+                break;
+            }
+        }
     }
 
     pub fn inorderTraversal(self: BinarySearchTree) std.mem.Allocator.Error!InorderTraversalEagerIterator {
-        const bst_slice = if (self.arr.get_slice(0, self.arr.len)) |val| val else |_| {
-            // Slicing from 0 to `arr.len` (end is exclusive) should always be within
-            // bounds, so the use of `DynamicArray.get_slice()` here should never return
-            // an `OutOfBounds` error. Hence, unreachable
-            unreachable;
-        };
-        const iter_slice = try self.allocator.alloc(*u8, self.arr.len);
+        const iter_slice = try self.allocator.alloc(*u8, self.slice.len);
         const index_stack = try self.allocator.create(stack.Stack);
         index_stack.* = stack.Stack.new();
         const count = try self.allocator.create(usize);
         count.* = 0;
 
         // Traverse BST
-        try inorder(self.allocator, 0, bst_slice, iter_slice, index_stack, count);
+        try inorder(self.allocator, 0, self.slice, iter_slice, index_stack, count);
 
-        // Deallocate memory for data structures used for traversal
-        self.allocator.destroy(count);
+        // Deallocate memory for stack used in traversal
         self.allocator.destroy(index_stack);
 
         return InorderTraversalEagerIterator{
             .slice = iter_slice,
             .allocator = self.allocator,
             .current = 0,
+            .len = count,
         };
     }
 
-    pub fn free(self: *BinarySearchTree) std.mem.Allocator.Error!void {
-        try self.arr.free(self.allocator);
+    pub fn free(self: *BinarySearchTree) void {
+        self.allocator.free(self.slice);
     }
 };
 
@@ -130,5 +141,5 @@ test "inorder traversal iterator produces correct ordering of visited nodes" {
 
     // Free iterator and BST
     iterator.free();
-    try bst.free();
+    bst.free();
 }
