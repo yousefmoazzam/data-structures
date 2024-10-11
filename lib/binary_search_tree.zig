@@ -5,8 +5,10 @@ const stack = @import("stack.zig");
 /// Perform inorder traversal of binary tree via recursion (assuming an array representation
 /// for the binary tree)
 fn inorder(allocator: std.mem.Allocator, idx: usize, bst_slice: []?u8, iter_slice: []*u8, index_stack: *stack.Stack, count: *usize) std.mem.Allocator.Error!void {
-    // TODO: The value being pushed onto the stack need to be verified to not be `null`, to
-    // justify the unwrapping of the optional being safe to do
+    if (bst_slice[idx] == null) return;
+
+    // The value being pushed onto the stack has been verified to not be `null`, so the
+    // optional can safely be unwrapped
     try index_stack.*.push(allocator, bst_slice[idx].?);
     const left_child_idx: usize = 2 * idx + 1;
 
@@ -64,12 +66,13 @@ pub const InorderTraversalEagerIterator = struct {
 pub const BinarySearchTree = struct {
     allocator: std.mem.Allocator,
     slice: []?u8,
+    count: usize,
 
     pub fn new(allocator: std.mem.Allocator) std.mem.Allocator.Error!BinarySearchTree {
-        return BinarySearchTree{ .slice = try allocator.alloc(?u8, 0), .allocator = allocator };
+        return BinarySearchTree{ .slice = try allocator.alloc(?u8, 0), .allocator = allocator, .count = 0 };
     }
 
-    pub fn insert(self: *BinarySearchTree, value: u8) std.mem.Allocator.Error!void {
+    pub fn insert(self: *BinarySearchTree, value: ?u8) std.mem.Allocator.Error!void {
         // TODO: Naive insertion implementation, purely to be able to get elements into the
         // slice for the purposes of testing inorder traversal algorithm.
         //
@@ -83,12 +86,8 @@ pub const BinarySearchTree = struct {
             self.slice = slice;
         }
 
-        for (self.slice) |*element| {
-            if (element.* == null) {
-                element.* = value;
-                break;
-            }
-        }
+        self.slice[self.count] = value;
+        self.count += 1;
     }
 
     pub fn inorderTraversal(self: BinarySearchTree) std.mem.Allocator.Error!InorderTraversalEagerIterator {
@@ -133,6 +132,32 @@ test "inorder traversal iterator produces correct ordering of visited nodes" {
 
     // Traverse iterator and check each element is as expected, based on the assumption of the
     // array representation of a binary tree's nodes
+    var count: usize = 0;
+    while (iterator.next()) |item| {
+        try std.testing.expectEqual(expected_ordering[count], item);
+        count += 1;
+    }
+
+    // Free iterator and BST
+    iterator.free();
+    bst.free();
+}
+
+test "inorder traversal over BST with null nodes produces correct ordering of visited nodes" {
+    const allocator = std.testing.allocator;
+    var bst = try BinarySearchTree.new(allocator);
+    const values = [_]?u8{ 7, 5, 20, 4, 6, 15, 33, 2, null, null, null, 10, null, 25, null };
+    const expected_ordering = [_]?u8{ 2, 4, 5, 6, 7, 10, 15, 20, 25, 33 };
+
+    // Insert values into BST
+    for (values) |value| {
+        try bst.insert(value);
+    }
+
+    // Get inorder traversal iterator over BST
+    var iterator = try bst.inorderTraversal();
+
+    // Traverse iterator and check each element is as expected
     var count: usize = 0;
     while (iterator.next()) |item| {
         try std.testing.expectEqual(expected_ordering[count], item);
