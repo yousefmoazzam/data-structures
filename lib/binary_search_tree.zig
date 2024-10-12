@@ -154,6 +154,36 @@ pub const BinarySearchTree = struct {
         return;
     }
 
+    pub fn remove(self: *BinarySearchTree, value: u8) std.mem.Allocator.Error!void {
+        const idx = self.find(0, value);
+        self.slice[idx] = null;
+        if (idx == 0 and self.slice.len == 1) {
+            self.free();
+            self.slice = try self.allocator.alloc(?u8, 0);
+        }
+
+        // TODO: Value to remove was in the root node, but the root isn't the only node in the
+        // tree, so more needs to be done in this case.
+
+        // TODO: Value to remove is not in the root node. Need to figure out how to remove such
+        // values, based on the subtrees of the node it is in.
+    }
+
+    fn find(self: BinarySearchTree, idx: usize, value: u8) usize {
+        // TODO: Starting at root node, compare given value to root node value
+        // - if equal to the current node, then we've found the node to delete
+        // - if less than the current node, recurse down left subtree
+        // - if greater than the current node, recurse down right subtree
+        if (self.slice[idx] == value) {
+            return idx;
+        }
+
+        // TODO: If execution reaches the end of the function, then the value hasn't been found
+        // and an "element not found" error should be returned. For now, panic if execution
+        // reaches here
+        unreachable;
+    }
+
     pub fn inorderTraversal(self: BinarySearchTree) std.mem.Allocator.Error!InorderTraversalEagerIterator {
         const iter_slice = try self.allocator.alloc(*u8, self.slice.len);
         const index_stack = try self.allocator.create(stack.Stack);
@@ -264,5 +294,20 @@ test "empty BST produces inorder iterator of length 0" {
     const bst = try BinarySearchTree.new(allocator);
     const iterator = try bst.inorderTraversal();
     try std.testing.expectEqual(0, iterator.len.*);
+    iterator.free();
+}
+
+test "remove root node in BST with only one node" {
+    const allocator = std.testing.allocator;
+    var bst = try BinarySearchTree.new(allocator);
+    const value = 5;
+    try bst.insert(value);
+    try bst.remove(value);
+
+    // Get inorder iterator over BST and check its length is zero
+    const iterator = try bst.inorderTraversal();
+    try std.testing.expectEqual(0, iterator.len.*);
+
+    // Free iterator
     iterator.free();
 }
