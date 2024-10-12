@@ -5,6 +5,7 @@ const stack = @import("stack.zig");
 /// Perform inorder traversal of binary tree via recursion (assuming an array representation
 /// for the binary tree)
 fn inorder(allocator: std.mem.Allocator, idx: usize, bst_slice: []?u8, iter_slice: []*u8, index_stack: *stack.Stack, count: *usize) std.mem.Allocator.Error!void {
+    if (bst_slice.len == 0) return;
     if (bst_slice[idx] == null) return;
 
     // The value being pushed onto the stack has been verified to not be `null`, so the
@@ -256,4 +257,12 @@ test "inserting elements into binary search tree produces correct ordering" {
     // Free iterator and BST
     iterator.free();
     bst.free();
+}
+
+test "empty BST produces inorder iterator of length 0" {
+    const allocator = std.testing.allocator;
+    const bst = try BinarySearchTree.new(allocator);
+    const iterator = try bst.inorderTraversal();
+    try std.testing.expectEqual(0, iterator.len.*);
+    iterator.free();
 }
