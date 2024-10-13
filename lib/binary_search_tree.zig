@@ -1,26 +1,23 @@
 const std = @import("std");
 
+const list = @import("linked_list.zig");
 const stack = @import("stack.zig");
 
-/// Perform inorder traversal of binary tree via recursion (assuming an array representation
-/// for the binary tree)
-fn inorder(allocator: std.mem.Allocator, idx: usize, bst_slice: []?u8, iter_slice: []*u8, index_stack: *stack.Stack, count: *usize) std.mem.Allocator.Error!void {
-    if (bst_slice.len == 0) return;
-    if (bst_slice[idx] == null) return;
+/// Perform inorder traversal of binary tree via recursion
+fn inorder(allocator: std.mem.Allocator, current_node: ?*Node, index_stack: *stack.Stack, visited_nodes: *list.SinglyLinkedList(*Node)) std.mem.Allocator.Error!void {
+    const node = if (current_node) |val| val else {
+        return;
+    };
 
-    // The value being pushed onto the stack has been verified to not be `null`, so the
-    // optional can safely be unwrapped
-    try index_stack.*.push(allocator, bst_slice[idx].?);
-    const left_child_idx: usize = 2 * idx + 1;
+    try index_stack.*.push(allocator, node.*.value);
 
-    // If the left child of current node is within bounds, keep traversing down the left
-    // subtree
-    if (left_child_idx < iter_slice.len) {
-        try inorder(allocator, left_child_idx, bst_slice, iter_slice, index_stack, count);
+    // If the left child of current node is not null, keep traversing down the left subtree
+    if (node.*.left) |left_child| {
+        try inorder(allocator, left_child, index_stack, visited_nodes);
     }
 
-    // If execution has reached here, then either the left child wasn't within bounds, or we
-    // have returned from a recursive call that occurred in the above `if` statement.
+    // If execution has reached here, then either the left child was null, or we have returned
+    // from a recursive call that occurred in the above `if` statement.
     //
     // In either case, we must now pop off the current value and then note this index/node as
     // the next to be visited.
@@ -29,28 +26,32 @@ fn inorder(allocator: std.mem.Allocator, idx: usize, bst_slice: []?u8, iter_slic
         // Hence, unreachable.
         unreachable;
     }
-    iter_slice[count.*] = &bst_slice[idx].?;
-    count.* += 1;
+    try visited_nodes.append(allocator, node);
 
-    // Now need to explore right subtree, so check if the right child index is within bounds or
-    // not and recurse down it if so
-    const right_child_index: usize = 2 * idx + 2;
-    if (right_child_index < iter_slice.len) {
-        try inorder(allocator, right_child_index, bst_slice, iter_slice, index_stack, count);
+    // Now need to explore right subtree, so check if the right child index is null or not, and
+    // recurse down it if not
+    if (node.*.right) |right_child| {
+        try inorder(allocator, right_child, index_stack, visited_nodes);
     }
 }
 
 /// Provides a slice of `u8` pointers in the order of traversal, where the traversal operations
 /// have been eagerly evaluated to produce the slice
 pub const InorderTraversalEagerIterator = struct {
-    slice: []*u8,
+    nodes: *list.SinglyLinkedList(*Node),
     allocator: std.mem.Allocator,
     current: usize,
-    len: *usize,
 
     pub fn next(self: *InorderTraversalEagerIterator) ?u8 {
-        if (self.current < self.len.*) {
-            const val = self.slice[self.current].*;
+        if (self.current < self.nodes.*.len) {
+            const val = if (self.nodes.get(self.current)) |node| node.*.value else |_| {
+                // The `self.current` value starts at 0 and is incremented for each call to
+                // `next()`. The `if` body only is executed if the `self.current` value is
+                // within the bounds of the linked list, so
+                // `SinglyLinkedList(Node).get(self.current)` should never return an
+                // `OutOfBounds` error. Hence, unreachable.
+                unreachable;
+            };
             self.current += 1;
             return val;
         }
@@ -58,108 +59,86 @@ pub const InorderTraversalEagerIterator = struct {
         return null;
     }
 
+    /// Deallocate the linked list's elements, as well as the linked list struct value itself
     pub fn free(self: InorderTraversalEagerIterator) void {
-        self.allocator.free(self.slice);
-        self.allocator.destroy(self.len);
+        self.nodes.*.free(self.allocator);
+        self.allocator.destroy(self.nodes);
     }
+};
+
+const Node = struct {
+    value: u8,
+    left: ?*Node,
+    right: ?*Node,
 };
 
 pub const BinarySearchTree = struct {
     allocator: std.mem.Allocator,
-    slice: []?u8,
-    layers: usize,
+    root: ?*Node,
 
     pub fn new(allocator: std.mem.Allocator) std.mem.Allocator.Error!BinarySearchTree {
-        return BinarySearchTree{ .slice = try allocator.alloc(?u8, 0), .allocator = allocator, .layers = 0 };
-    }
-
-    fn calculateNumberOfElementsInNextLayer(self: BinarySearchTree) usize {
-        return self.slice.len + std.math.pow(usize, 2, self.layers);
-    }
-
-    fn addLayer(self: *BinarySearchTree) std.mem.Allocator.Error!void {
-        const new_slice = try self.allocator.alloc(?u8, self.calculateNumberOfElementsInNextLayer());
-        for (0..self.slice.len) |i| {
-            new_slice[i] = self.slice[i];
-        }
-
-        // Set `null` values for the nodes in the newly added layer
-        for (self.slice.len..new_slice.len) |i| {
-            new_slice[i] = null;
-        }
-
-        self.allocator.free(self.slice);
-        self.slice = new_slice;
-        self.layers += 1;
+        return BinarySearchTree{ .allocator = allocator, .root = null };
     }
 
     pub fn insert(self: *BinarySearchTree, value: u8) std.mem.Allocator.Error!void {
-        if (self.slice.len == 0) {
-            const slice = try self.allocator.alloc(?u8, 1);
-            slice[0] = value;
-            self.allocator.free(self.slice);
-            self.slice = slice;
-            self.layers += 1;
+        if (self.root == null) {
+            const node = try self.allocator.create(Node);
+            node.*.value = value;
+            node.*.left = null;
+            node.*.right = null;
+            self.root = node;
             return;
         }
 
-        // If execution has reached here, then the BST is non-empty, and now must recurse down
-        // the tree until the appropriate place to insert the given value has been found
-        try self.insert_recurse(0, value);
+        // If execution has reached here, then the root node cannot be null, hence the
+        // unwrapping of the optional `self.root` is safe to do
+        try self.insert_recurse(self.root.?, value);
     }
 
-    fn insert_recurse(self: *BinarySearchTree, idx: usize, value: u8) std.mem.Allocator.Error!void {
-        const current_value = if (self.slice[idx]) |val| val else {
-            self.slice[idx] = value;
-            return;
-        };
-
-        const is_value_less_than_current = value < current_value;
+    fn insert_recurse(self: *BinarySearchTree, node: *Node, value: u8) std.mem.Allocator.Error!void {
+        const is_value_less_than_current = value < node.*.value;
         if (is_value_less_than_current) {
-            const left_child_idx: usize = 2 * idx + 1;
-
-            if (left_child_idx < self.slice.len) {
+            if (node.*.left) |left_child| {
                 // Carry on recursing down left subtree
-                return try self.insert_recurse(left_child_idx, value);
+                return try self.insert_recurse(left_child, value);
+            } else {
+                // Value to insert is smaller than value in current node, but the left child is
+                // a null node, so set the current node's left child to a new node containing
+                // the value to insert.
+                const new_node = try self.allocator.create(Node);
+                new_node.*.value = value;
+                new_node.*.left = null;
+                new_node.*.right = null;
+                node.*.left = new_node;
+                return;
             }
-
-            // Value is smaller than current value, but the index of the left child of the
-            // current node isn't within bounds of the underlying array, so cannot recurse
-            // further. Need to add another layer to the BST, and then insert value as the left
-            // child of the current node.
-            if (left_child_idx >= self.slice.len) {
-                try self.addLayer();
-            }
-            self.slice[left_child_idx] = value;
-            return;
         }
 
         // If execution has reached here, then the value is >= to the current value.
         //
         // NOTE: Not handling duplicate values for now, so assume value is > current value, so
         // need to recurse down right subtree.
-        const right_child_idx: usize = 2 * idx + 2;
-        if (right_child_idx < self.slice.len) {
-            // Carry on recursing down right subtree
-            return try self.insert_recurse(right_child_idx, value);
+        if (node.*.right) |right_child| {
+            return try self.insert_recurse(right_child, value);
+        } else {
+            // The right child of the current node is null, so set the current node's right
+            // child to a new node containing the value to insert.
+            const new_node = try self.allocator.create(Node);
+            new_node.*.value = value;
+            new_node.*.left = null;
+            new_node.*.right = null;
+            node.*.right = new_node;
+            return;
         }
-
-        // If execution has reached here, then the right child index isn;t within bounds, so
-        // cannot recurse further. Need to add another layer to the BST, and then insert value
-        // as the right child of the current node.
-        if (right_child_idx >= self.slice.len) {
-            try self.addLayer();
-        }
-        self.slice[right_child_idx] = value;
-        return;
     }
 
     pub fn remove(self: *BinarySearchTree, value: u8) std.mem.Allocator.Error!void {
-        const idx = self.find(0, value);
-        self.slice[idx] = null;
-        if (idx == 0 and self.slice.len == 1) {
-            self.free();
-            self.slice = try self.allocator.alloc(?u8, 0);
+        const node = find(self.root, value);
+
+        // Value to remove is in the the root node where the root node also has no children
+        if (node == self.root.? and node.*.left == null and node.*.right == null) {
+            self.allocator.destroy(node);
+            self.root = null;
         }
 
         // TODO: Value to remove was in the root node, but the root isn't the only node in the
@@ -169,13 +148,17 @@ pub const BinarySearchTree = struct {
         // values, based on the subtrees of the node it is in.
     }
 
-    fn find(self: BinarySearchTree, idx: usize, value: u8) usize {
+    fn find(node: ?*Node, value: u8) *Node {
         // TODO: Starting at root node, compare given value to root node value
-        // - if equal to the current node, then we've found the node to delete
         // - if less than the current node, recurse down left subtree
         // - if greater than the current node, recurse down right subtree
-        if (self.slice[idx] == value) {
-            return idx;
+        const current_node = if (node) |val| val else {
+            unreachable;
+        };
+
+        // If equal to the current node, then we've found the node to delete
+        if (current_node.*.value == value) {
+            return current_node;
         }
 
         // TODO: If execution reaches the end of the function, then the value hasn't been found
@@ -185,28 +168,52 @@ pub const BinarySearchTree = struct {
     }
 
     pub fn inorderTraversal(self: BinarySearchTree) std.mem.Allocator.Error!InorderTraversalEagerIterator {
-        const iter_slice = try self.allocator.alloc(*u8, self.slice.len);
-        const index_stack = try self.allocator.create(stack.Stack);
-        index_stack.* = stack.Stack.new();
-        const count = try self.allocator.create(usize);
-        count.* = 0;
-
-        // Traverse BST
-        try inorder(self.allocator, 0, self.slice, iter_slice, index_stack, count);
-
-        // Deallocate memory for stack used in traversal
-        self.allocator.destroy(index_stack);
-
+        const nodes = try self.getListOfNodePtrs();
         return InorderTraversalEagerIterator{
-            .slice = iter_slice,
+            .nodes = nodes,
             .allocator = self.allocator,
             .current = 0,
-            .len = count,
         };
     }
 
-    pub fn free(self: *BinarySearchTree) void {
-        self.allocator.free(self.slice);
+    fn getListOfNodePtrs(self: BinarySearchTree) std.mem.Allocator.Error!*list.SinglyLinkedList(*Node) {
+        const index_stack = try self.allocator.create(stack.Stack);
+        index_stack.* = stack.Stack.new();
+        const visited_nodes = try self.allocator.create(list.SinglyLinkedList(*Node));
+        visited_nodes.* = list.SinglyLinkedList(*Node).new();
+
+        // Traverse BST
+        try inorder(self.allocator, self.root, index_stack, visited_nodes);
+
+        // Deallocate memory for stack used in traversal
+        index_stack.*.free(self.allocator);
+        self.allocator.destroy(index_stack);
+
+        return visited_nodes;
+    }
+
+    pub fn free(self: *BinarySearchTree) std.mem.Allocator.Error!void {
+        const bst_node_ptrs_list = try self.getListOfNodePtrs();
+
+        // `traversal_ptr` is a pointer to a `Node` in a singly linked list, which in turn has
+        // a value which is a pointer to a BST `Node`
+        //
+        // Meaning, to get to a pointer to a BST `Node`, we must:
+        // - unwrap the optional pointer to a singly linked list node (to get a pointer to a
+        // singly linked list node)
+        // - dereference the pointer to a singly linked list node (to get a pointer to a BST
+        // node)
+        var traversal_ptr = bst_node_ptrs_list.head;
+        var count: usize = 0;
+        while (traversal_ptr != null) : (count += 1) {
+            // `traversal_ptr` has been confirmed to not be null, so the unwrap is safe to do.
+            self.allocator.destroy(traversal_ptr.?.*.value);
+            traversal_ptr = traversal_ptr.?.next;
+        }
+
+        // Deallocate the linked list of BST node pointers
+        bst_node_ptrs_list.*.free(self.allocator);
+        self.allocator.destroy(bst_node_ptrs_list);
     }
 };
 
@@ -234,7 +241,7 @@ test "inorder traversal iterator produces correct ordering of visited nodes" {
 
     // Free iterator and BST
     iterator.free();
-    bst.free();
+    try bst.free();
 }
 
 test "inorder traversal over BST with null nodes produces correct ordering of visited nodes" {
@@ -260,7 +267,7 @@ test "inorder traversal over BST with null nodes produces correct ordering of vi
 
     // Free iterator and BST
     iterator.free();
-    bst.free();
+    try bst.free();
 }
 
 test "inserting elements into binary search tree produces correct ordering" {
@@ -286,14 +293,14 @@ test "inserting elements into binary search tree produces correct ordering" {
 
     // Free iterator and BST
     iterator.free();
-    bst.free();
+    try bst.free();
 }
 
 test "empty BST produces inorder iterator of length 0" {
     const allocator = std.testing.allocator;
     const bst = try BinarySearchTree.new(allocator);
     const iterator = try bst.inorderTraversal();
-    try std.testing.expectEqual(0, iterator.len.*);
+    try std.testing.expectEqual(0, iterator.nodes.len);
     iterator.free();
 }
 
@@ -306,7 +313,7 @@ test "remove root node in BST with only one node" {
 
     // Get inorder iterator over BST and check its length is zero
     const iterator = try bst.inorderTraversal();
-    try std.testing.expectEqual(0, iterator.len.*);
+    try std.testing.expectEqual(0, iterator.nodes.len);
 
     // Free iterator
     iterator.free();
