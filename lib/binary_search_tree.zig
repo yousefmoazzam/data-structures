@@ -133,18 +133,18 @@ pub const BinarySearchTree = struct {
     }
 
     pub fn remove(self: *BinarySearchTree, value: u8) std.mem.Allocator.Error!void {
-        const root_node = if (self.root) |val| val else {
+        const old_root_node = if (self.root) |val| val else {
             // TODO: Trying to remove element from empty BST should raise an error
             unreachable;
         };
-        const node = if (root_node.*.value == value) root_node else {
+        const node = if (old_root_node.*.value == value) old_root_node else {
             // TODO: Need to recurse down the tree and find the parent of the node to remove.
             // For now, panic if the root node isn't the one to remove.
             unreachable;
         };
 
         // Value to remove is in the the root node where the root node also has no children
-        if (node == root_node and node.*.left == null and node.*.right == null) {
+        if (node == old_root_node and node.*.left == null and node.*.right == null) {
             self.allocator.destroy(node);
             self.root = null;
             return;
@@ -156,9 +156,9 @@ pub const BinarySearchTree = struct {
         // If the root node has a left child but no right child, then:
         // - swap the root node with its left child
         // - remove the old root node
-        if (node == root_node and node.*.left != null and node.*.right == null) {
-            self.root = root_node.*.left;
-            self.allocator.destroy(root_node);
+        if (node == old_root_node and node.*.left != null and node.*.right == null) {
+            self.root = old_root_node.*.left;
+            self.allocator.destroy(old_root_node);
             return;
         }
 
