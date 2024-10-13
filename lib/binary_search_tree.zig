@@ -147,6 +147,7 @@ pub const BinarySearchTree = struct {
         if (node == root_node and node.*.left == null and node.*.right == null) {
             self.allocator.destroy(node);
             self.root = null;
+            return;
         }
 
         // TODO: Value to remove was in the root node, but the root isn't the only node in the
