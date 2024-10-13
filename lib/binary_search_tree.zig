@@ -162,6 +162,15 @@ pub const BinarySearchTree = struct {
             return;
         }
 
+        // If the root node has a right child but no left child, then:
+        // - swap the root node with its right child
+        // - remove the old root node
+        if (node == old_root_node and node.*.left == null and node.*.right != null) {
+            self.root = old_root_node.*.right;
+            self.allocator.destroy(old_root_node);
+            return;
+        }
+
         // TODO: Value to remove is not in the root node. Need to figure out how to remove such
         // values, based on the subtrees of the node it is in.
     }
@@ -324,6 +333,35 @@ test "remove root node in BST with single subtree (left) of root node" {
     const values = [_]u8{ 2, 1 };
     const value_to_remove = 2;
     const value_to_keep = 1;
+
+    // Insert elements into BST
+    for (values) |value| {
+        try bst.insert(value);
+    }
+
+    // Remove root value
+    try bst.remove(value_to_remove);
+
+    // Get inorder iterator over BST
+    var iterator = try bst.inorderTraversal();
+
+    // Check iterator's length is one
+    try std.testing.expectEqual(1, iterator.nodes.len);
+
+    // Check single value in iterator is as expected
+    try std.testing.expectEqual(value_to_keep, iterator.next());
+
+    // Free iterator and BST
+    iterator.free();
+    try bst.free();
+}
+
+test "remove root node in BST with single subtree (right) of root node" {
+    const allocator = std.testing.allocator;
+    var bst = try BinarySearchTree.new(allocator);
+    const values = [_]u8{ 1, 2 };
+    const value_to_remove = 1;
+    const value_to_keep = 2;
 
     // Insert elements into BST
     for (values) |value| {
