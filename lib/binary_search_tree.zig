@@ -133,10 +133,18 @@ pub const BinarySearchTree = struct {
     }
 
     pub fn remove(self: *BinarySearchTree, value: u8) std.mem.Allocator.Error!void {
-        const node = find(self.root, value);
+        const root_node = if (self.root) |val| val else {
+            // TODO: Trying to remove element from empty BST should raise an error
+            unreachable;
+        };
+        const node = if (root_node.*.value == value) root_node else {
+            // TODO: Need to recurse down the tree and find the parent of the node to remove.
+            // For now, panic if the root node isn't the one to remove.
+            unreachable;
+        };
 
         // Value to remove is in the the root node where the root node also has no children
-        if (node == self.root.? and node.*.left == null and node.*.right == null) {
+        if (node == root_node and node.*.left == null and node.*.right == null) {
             self.allocator.destroy(node);
             self.root = null;
         }
@@ -146,25 +154,6 @@ pub const BinarySearchTree = struct {
 
         // TODO: Value to remove is not in the root node. Need to figure out how to remove such
         // values, based on the subtrees of the node it is in.
-    }
-
-    fn find(node: ?*Node, value: u8) *Node {
-        // TODO: Starting at root node, compare given value to root node value
-        // - if less than the current node, recurse down left subtree
-        // - if greater than the current node, recurse down right subtree
-        const current_node = if (node) |val| val else {
-            unreachable;
-        };
-
-        // If equal to the current node, then we've found the node to delete
-        if (current_node.*.value == value) {
-            return current_node;
-        }
-
-        // TODO: If execution reaches the end of the function, then the value hasn't been found
-        // and an "element not found" error should be returned. For now, panic if execution
-        // reaches here
-        unreachable;
     }
 
     pub fn inorderTraversal(self: BinarySearchTree) std.mem.Allocator.Error!InorderTraversalEagerIterator {
