@@ -132,47 +132,54 @@ pub const BinarySearchTree = struct {
         }
     }
 
-    pub fn remove(self: *BinarySearchTree, value: u8) std.mem.Allocator.Error!void {
-        const old_root_node = if (self.root) |val| val else {
-            // TODO: Trying to remove element from empty BST should raise an error
+    pub fn remove(self: *BinarySearchTree, value: u8) void {
+        self.root = self.remove_recurse(self.root, value);
+    }
+
+    fn remove_recurse(self: *BinarySearchTree, node: ?*Node, value: u8) ?*Node {
+        const current_node = if (node) |val| val else {
+            // TODO: Handle when attempting to remove element when the root node is null (ie,
+            // trying to remove an element from an empty BST). For now, panic.
             unreachable;
         };
-        const node = if (old_root_node.*.value == value) old_root_node else {
-            // TODO: Need to recurse down the tree and find the parent of the node to remove.
-            // For now, panic if the root node isn't the one to remove.
+
+        if (value < current_node.*.value) {
+            // TODO: Need to traverse left subtree of root to find node to remove
             unreachable;
-        };
+        } else if (value > current_node.*.value) {
+            // TODO: Need to traverse right subtree of root to find node to remove
+            unreachable;
+        } else {
+            // Node value is equal to the given value, so this is the node to remove. Need to
+            // check if there are:
+            // - no children
+            // - only left subtree and no right subtree
+            // - only right subtree and no left subtree
+            //
+            // to handle the BST in the aftermath of the removal, to ensure that the BST
+            // invariant is still held.
 
-        // Value to remove is in the the root node where the root node also has no children
-        if (node == old_root_node and node.*.left == null and node.*.right == null) {
-            self.allocator.destroy(node);
-            self.root = null;
-            return;
+            if (current_node.*.left == null and current_node.*.right == null) {
+                self.allocator.destroy(current_node);
+                return null;
+            }
+
+            if (current_node.*.right == null) {
+                const left_child = current_node.*.left;
+                self.allocator.destroy(current_node);
+                return left_child;
+            }
+
+            if (current_node.*.left == null) {
+                const right_child = current_node.*.right;
+                self.allocator.destroy(current_node);
+                return right_child;
+            }
         }
 
-        // TODO: Value to remove was in the root node, but the root isn't the only node in the
-        // tree, so more needs to be done in this case.
-        //
-        // If the root node has a left child but no right child, then:
-        // - swap the root node with its left child
-        // - remove the old root node
-        if (node == old_root_node and node.*.left != null and node.*.right == null) {
-            self.root = old_root_node.*.left;
-            self.allocator.destroy(old_root_node);
-            return;
-        }
-
-        // If the root node has a right child but no left child, then:
-        // - swap the root node with its right child
-        // - remove the old root node
-        if (node == old_root_node and node.*.left == null and node.*.right != null) {
-            self.root = old_root_node.*.right;
-            self.allocator.destroy(old_root_node);
-            return;
-        }
-
-        // TODO: Value to remove is not in the root node. Need to figure out how to remove such
-        // values, based on the subtrees of the node it is in.
+        // TODO: If execution has reached here, then traversal past the root node has occurred.
+        // Needs to be handled properly, but panic for now
+        unreachable;
     }
 
     pub fn inorderTraversal(self: BinarySearchTree) std.mem.Allocator.Error!InorderTraversalEagerIterator {
@@ -317,7 +324,7 @@ test "remove root node in BST with only one node" {
     var bst = try BinarySearchTree.new(allocator);
     const value = 5;
     try bst.insert(value);
-    try bst.remove(value);
+    bst.remove(value);
 
     // Get inorder iterator over BST and check its length is zero
     const iterator = try bst.inorderTraversal();
@@ -340,7 +347,7 @@ test "remove root node in BST with single subtree (left) of root node" {
     }
 
     // Remove root value
-    try bst.remove(value_to_remove);
+    bst.remove(value_to_remove);
 
     // Get inorder iterator over BST
     var iterator = try bst.inorderTraversal();
@@ -369,7 +376,7 @@ test "remove root node in BST with single subtree (right) of root node" {
     }
 
     // Remove root value
-    try bst.remove(value_to_remove);
+    bst.remove(value_to_remove);
 
     // Get inorder iterator over BST
     var iterator = try bst.inorderTraversal();
