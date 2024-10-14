@@ -155,8 +155,13 @@ pub const BinarySearchTree = struct {
             // function body takes care of
             current_node.*.left = self.remove_recurse(current_node.*.left, value);
         } else if (value > current_node.*.value) {
-            // TODO: Need to traverse right subtree of root to find node to remove
-            unreachable;
+            // The right subtree of the current node contains the node to remove. Reassign the
+            // right child of the current node to the returned node of the next layer of
+            // recursion.
+            //
+            // The two possibilities of what can be returned for the next recursive call are
+            // the same as detailed in the left child case above, but for the right child.
+            current_node.*.right = self.remove_recurse(current_node.*.right, value);
         } else {
             // Node value is equal to the given value, so this is the node to remove. Need to
             // check if there are:
@@ -409,6 +414,39 @@ test "remove leaf node at top of left subtree of root node" {
     const values = [_]u8{ 2, 1, 3 };
     const value_to_remove = 1;
     const values_to_keep = [_]u8{ 2, 3 };
+
+    // Insert elements into BST
+    for (values) |value| {
+        try bst.insert(value);
+    }
+
+    // Remove element which is a leaf node in the BST
+    bst.remove(value_to_remove);
+
+    // Get inorder iterator over BST
+    var iterator = try bst.inorderTraversal();
+
+    // Check iterator's length is as expected
+    try std.testing.expectEqual(values_to_keep.len, iterator.nodes.len);
+
+    // Check values in the iterator are as expected
+    var count: usize = 0;
+    while (iterator.next()) |item| {
+        try std.testing.expectEqual(values_to_keep[count], item);
+        count += 1;
+    }
+
+    // Free iterator and BST
+    iterator.free();
+    try bst.free();
+}
+
+test "remove leaf node at top of right subtree of root node" {
+    const allocator = std.testing.allocator;
+    var bst = try BinarySearchTree.new(allocator);
+    const values = [_]u8{ 2, 1, 3 };
+    const value_to_remove = 3;
+    const values_to_keep = [_]u8{ 1, 2 };
 
     // Insert elements into BST
     for (values) |value| {
