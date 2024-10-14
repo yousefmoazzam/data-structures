@@ -144,8 +144,16 @@ pub const BinarySearchTree = struct {
         };
 
         if (value < current_node.*.value) {
-            // TODO: Need to traverse left subtree of root to find node to remove
-            unreachable;
+            // The left subtree of the current node contains the node to remove. Reassign the
+            // left child of the current node to the returned node of the next layer of
+            // recursion:
+            // - if the next layer contains the node to remove, then the return value will be
+            // the successor node of the removed node
+            // - if the next layer doesn't contain the node to remove, the return value will be
+            // the same left child node (ie, the left child will be reassigned, but to the same
+            // node as it was before); this is what the return statement at the very end of the
+            // function body takes care of
+            current_node.*.left = self.remove_recurse(current_node.*.left, value);
         } else if (value > current_node.*.value) {
             // TODO: Need to traverse right subtree of root to find node to remove
             unreachable;
@@ -177,9 +185,12 @@ pub const BinarySearchTree = struct {
             }
         }
 
-        // TODO: If execution has reached here, then traversal past the root node has occurred.
-        // Needs to be handled properly, but panic for now
-        unreachable;
+        // This takes care of layers in the recursion where the node to remove wasn't found,
+        // and the same child node needed to be returned (rather than reassigning the child to
+        // another node - namely, to a different successor node, in the event when a node is
+        // removed and a successor needs to be returned instead, which is what the `else`
+        // branch above is doing).
+        return current_node;
     }
 
     pub fn inorderTraversal(self: BinarySearchTree) std.mem.Allocator.Error!InorderTraversalEagerIterator {
@@ -386,6 +397,39 @@ test "remove root node in BST with single subtree (right) of root node" {
 
     // Check single value in iterator is as expected
     try std.testing.expectEqual(value_to_keep, iterator.next());
+
+    // Free iterator and BST
+    iterator.free();
+    try bst.free();
+}
+
+test "remove leaf node at top of left subtree of root node" {
+    const allocator = std.testing.allocator;
+    var bst = try BinarySearchTree.new(allocator);
+    const values = [_]u8{ 2, 1, 3 };
+    const value_to_remove = 1;
+    const values_to_keep = [_]u8{ 2, 3 };
+
+    // Insert elements into BST
+    for (values) |value| {
+        try bst.insert(value);
+    }
+
+    // Remove element which is a leaf node in the BST
+    bst.remove(value_to_remove);
+
+    // Get inorder iterator over BST
+    var iterator = try bst.inorderTraversal();
+
+    // Check iterator's length is as expected
+    try std.testing.expectEqual(values_to_keep.len, iterator.nodes.len);
+
+    // Check values in the iterator are as expected
+    var count: usize = 0;
+    while (iterator.next()) |item| {
+        try std.testing.expectEqual(values_to_keep[count], item);
+        count += 1;
+    }
 
     // Free iterator and BST
     iterator.free();
