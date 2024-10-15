@@ -35,6 +35,12 @@ fn inorder(allocator: std.mem.Allocator, current_node: ?*Node, index_stack: *sta
     }
 }
 
+fn recurse_right(node: *Node) *Node {
+    if (node.*.right) |right_child| {
+        return recurse_right(right_child);
+    } else return node;
+}
+
 /// Provides a slice of `u8` pointers in the order of traversal, where the traversal operations
 /// have been eagerly evaluated to produce the slice
 pub const InorderTraversalEagerIterator = struct {
@@ -188,6 +194,37 @@ pub const BinarySearchTree = struct {
                 self.allocator.destroy(current_node);
                 return right_child;
             }
+
+            // If execution has reached this far, then the node to remove has two child nodes,
+            // so a successor node must be chosen from one of the two subtrees to be the
+            // replacement of the node to remove that *also* enables the BST invariant to still
+            // be held.
+            //
+            // Two choices:
+            // - largest value in left subtree
+            // - smallest value in right subtree
+            //
+            // Arbitrarily, pick largest value in left subtree. So, this needs to be found
+            // before the swap can occur.
+            const largest_in_left_subtree = recurse_right(current_node.*.left.?);
+            const value_to_swap_with = largest_in_left_subtree.*.value;
+
+            // Before replacing the value in the node we want to remove with the value in the
+            // successor, we must first remove the successor node (to get rid of the duplicate
+            // value that would exist after the replacement is done).
+            //
+            // NOTE: The replacement cannot be done before this, because otherwise the removal
+            // will attempt to remove the current node rather than the successor.
+            //
+            // Bear in mind that the node we "remove" is strictly speaking not the node that
+            // contained the value we wanted to remove - instead, the node with the value we
+            // want to remove has its value replaced to main the BST invariant, and the node
+            // actually removed is the node that is the successor.
+            self.root = self.remove_recurse(self.root, largest_in_left_subtree.*.value);
+
+            // Finally, swap the value in the node to remove, with the largest value in the
+            // left subtree
+            current_node.*.value = value_to_swap_with;
         }
 
         // This takes care of layers in the recursion where the node to remove wasn't found,
@@ -467,6 +504,37 @@ test "remove leaf node at top of right subtree of root node" {
     while (iterator.next()) |item| {
         try std.testing.expectEqual(values_to_keep[count], item);
         count += 1;
+    }
+
+    // Free iterator and BST
+    iterator.free();
+    try bst.free();
+}
+
+test "remove root node in BST with two subtrees of root node" {
+    const allocator = std.testing.allocator;
+    var bst = try BinarySearchTree.new(allocator);
+    const values = [_]u8{ 6, 3, 8 };
+    const value_to_remove = 6;
+    const values_to_keep = [_]u8{ 3, 8 };
+
+    // Insert elements into BST
+    for (values) |value| {
+        try bst.insert(value);
+    }
+
+    // Remove root value
+    bst.remove(value_to_remove);
+
+    // Get inorder iterator over BST
+    var iterator = try bst.inorderTraversal();
+
+    // Check iterator's length is as expected
+    try std.testing.expectEqual(values_to_keep.len, iterator.nodes.len);
+
+    // Check values in iterator are as expected
+    for (values_to_keep) |value| {
+        try std.testing.expectEqual(value, iterator.next());
     }
 
     // Free iterator and BST
