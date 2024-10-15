@@ -72,6 +72,10 @@ pub const InorderTraversalEagerIterator = struct {
     }
 };
 
+const Error = error{
+    EmptyTree,
+};
+
 const Node = struct {
     value: u8,
     left: ?*Node,
@@ -138,7 +142,10 @@ pub const BinarySearchTree = struct {
         }
     }
 
-    pub fn remove(self: *BinarySearchTree, value: u8) void {
+    pub fn remove(self: *BinarySearchTree, value: u8) Error!void {
+        if (self.root == null) {
+            return Error.EmptyTree;
+        }
         self.root = self.remove_recurse(self.root, value);
     }
 
@@ -377,7 +384,7 @@ test "remove root node in BST with only one node" {
     var bst = try BinarySearchTree.new(allocator);
     const value = 5;
     try bst.insert(value);
-    bst.remove(value);
+    try bst.remove(value);
 
     // Get inorder iterator over BST and check its length is zero
     const iterator = try bst.inorderTraversal();
@@ -400,7 +407,7 @@ test "remove root node in BST with single subtree (left) of root node" {
     }
 
     // Remove root value
-    bst.remove(value_to_remove);
+    try bst.remove(value_to_remove);
 
     // Get inorder iterator over BST
     var iterator = try bst.inorderTraversal();
@@ -429,7 +436,7 @@ test "remove root node in BST with single subtree (right) of root node" {
     }
 
     // Remove root value
-    bst.remove(value_to_remove);
+    try bst.remove(value_to_remove);
 
     // Get inorder iterator over BST
     var iterator = try bst.inorderTraversal();
@@ -458,7 +465,7 @@ test "remove leaf node at top of left subtree of root node" {
     }
 
     // Remove element which is a leaf node in the BST
-    bst.remove(value_to_remove);
+    try bst.remove(value_to_remove);
 
     // Get inorder iterator over BST
     var iterator = try bst.inorderTraversal();
@@ -491,7 +498,7 @@ test "remove leaf node at top of right subtree of root node" {
     }
 
     // Remove element which is a leaf node in the BST
-    bst.remove(value_to_remove);
+    try bst.remove(value_to_remove);
 
     // Get inorder iterator over BST
     var iterator = try bst.inorderTraversal();
@@ -524,7 +531,7 @@ test "remove root node in BST with two subtrees of root node" {
     }
 
     // Remove root value
-    bst.remove(value_to_remove);
+    try bst.remove(value_to_remove);
 
     // Get inorder iterator over BST
     var iterator = try bst.inorderTraversal();
@@ -540,4 +547,11 @@ test "remove root node in BST with two subtrees of root node" {
     // Free iterator and BST
     iterator.free();
     try bst.free();
+}
+
+test "return error if removing element from empty BST" {
+    const allocator = std.testing.allocator;
+    var bst = try BinarySearchTree.new(allocator);
+    const res = bst.remove(3);
+    try std.testing.expectError(Error.EmptyTree, res);
 }
