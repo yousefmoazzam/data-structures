@@ -65,6 +65,35 @@ fn inorder(allocator: std.mem.Allocator, current_node: ?*Node, index_stack: *sta
     }
 }
 
+fn postorder(allocator: std.mem.Allocator, current_node: ?*Node, index_stack: *stack.Stack, visited_nodes: *list.SinglyLinkedList(*Node)) std.mem.Allocator.Error!void {
+    const node = if (current_node) |val| val else {
+        return;
+    };
+
+    try index_stack.*.push(allocator, node.*.value);
+
+    // If the left child is not null, then traverse the left subtree
+    if (node.*.left) |left_child| {
+        try postorder(allocator, left_child, index_stack, visited_nodes);
+    }
+
+    // After traversing the left subtree (or not, if the left child was null), pop the value of
+    // the current node off of the stack
+    if (index_stack.*.pop(allocator)) |_| {} else |_| {
+        // If the algorithm is correct, an empty stack should never attempted to be popped.
+        // Hence, unreachable.
+        unreachable;
+    }
+
+    // If the right child is not null, traverse the right subtree of the current node
+    if (node.*.right) |right_child| {
+        try postorder(allocator, right_child, index_stack, visited_nodes);
+    }
+
+    // Now that the right subtree has been traverse, visit the current node
+    try visited_nodes.*.append(allocator, node);
+}
+
 fn recurse_right(node: *Node) *Node {
     if (node.*.right) |right_child| {
         return recurse_right(right_child);
@@ -118,6 +147,27 @@ pub const InorderTraversalEagerIterator = struct {
 
     /// Deallocate the linked list's elements, as well as the linked list struct value itself
     pub fn free(self: InorderTraversalEagerIterator) void {
+        self.nodes.*.free(self.allocator);
+        self.allocator.destroy(self.nodes);
+    }
+};
+
+pub const PostorderTraversalEagerIterator = struct {
+    nodes: *list.SinglyLinkedList(*Node),
+    allocator: std.mem.Allocator,
+    current: usize,
+
+    pub fn next(self: *PostorderTraversalEagerIterator) ?u8 {
+        if (self.current < self.nodes.*.len) {
+            const val = if (self.nodes.get(self.current)) |node| node.*.value else |_| unreachable;
+            self.current += 1;
+            return val;
+        }
+
+        return null;
+    }
+
+    pub fn free(self: PostorderTraversalEagerIterator) void {
         self.nodes.*.free(self.allocator);
         self.allocator.destroy(self.nodes);
     }
@@ -326,6 +376,26 @@ pub const BinarySearchTree = struct {
         const nodes = try self.getListOfNodePtrs();
         return InorderTraversalEagerIterator{
             .nodes = nodes,
+            .allocator = self.allocator,
+            .current = 0,
+        };
+    }
+
+    pub fn postorderTraversal(self: BinarySearchTree) std.mem.Allocator.Error!PostorderTraversalEagerIterator {
+        const index_stack = try self.allocator.create(stack.Stack);
+        index_stack.* = stack.Stack.new();
+        const visited_nodes = try self.allocator.create(list.SinglyLinkedList(*Node));
+        visited_nodes.* = list.SinglyLinkedList(*Node).new();
+
+        // Traverse BST
+        try postorder(self.allocator, self.root, index_stack, visited_nodes);
+
+        // Deallocate memory for stack used in traversal
+        index_stack.*.free(self.allocator);
+        self.allocator.destroy(index_stack);
+
+        return PostorderTraversalEagerIterator{
+            .nodes = visited_nodes,
             .allocator = self.allocator,
             .current = 0,
         };
@@ -670,6 +740,32 @@ test "preorder traversal iterator produces correct ordering of visited nodes" {
     var iterator = try bst.preorderTraversal();
 
     // Traverse preorder iterator and check the visited nodes ordering is as expected
+    var count: usize = 0;
+    while (iterator.next()) |item| {
+        try std.testing.expectEqual(expected_ordering[count], item);
+        count += 1;
+    }
+
+    // Free iterator and BST
+    iterator.free();
+    try bst.free();
+}
+
+test "postorder traversal iterator produces correct ordering of visited nodes" {
+    const allocator = std.testing.allocator;
+    var bst = try BinarySearchTree.new(allocator);
+    const values = [_]u8{ 7, 1, 3, 9, 14, 4, 19, 18, 10, 2, 31, 16, 5, 29, 11 };
+    const expected_ordering = [_]u8{ 2, 5, 4, 3, 1, 11, 10, 16, 18, 29, 31, 19, 14, 9, 7 };
+
+    // Insert elements into BST
+    for (values) |value| {
+        try bst.insert(value);
+    }
+
+    // Get postorder traversal iterator over BST
+    var iterator = try bst.postorderTraversal();
+
+    // Traverse postorder iterator and check the visited nodes ordering is as expected
     var count: usize = 0;
     while (iterator.next()) |item| {
         try std.testing.expectEqual(expected_ordering[count], item);
