@@ -3,6 +3,36 @@ const std = @import("std");
 const list = @import("linked_list.zig");
 const stack = @import("stack.zig");
 
+fn preorder(allocator: std.mem.Allocator, current_node: ?*Node, index_stack: *stack.Stack, visited_nodes: *list.SinglyLinkedList(*Node)) std.mem.Allocator.Error!void {
+    const node = if (current_node) |val| val else {
+        return;
+    };
+
+    try index_stack.*.push(allocator, node.*.value);
+
+    // Visit the current node before traversing its left subtree
+    try visited_nodes.*.append(allocator, node);
+
+    // If the left child of the current node isn't null then traverse down the left subtree
+    if (node.*.left) |left_child| {
+        try preorder(allocator, left_child, index_stack, visited_nodes);
+    }
+
+    // After traversal of the current node's left subtree (or no traversal of the left subtree
+    // at all if the left child was null), the current node's value must be popped off the
+    // stack before traversing the right subtree
+    if (index_stack.*.pop(allocator)) |_| {} else |_| {
+        // If the algorithm is correct, an empty stack should never attempted to be popped.
+        // Hence, unreachable.
+        unreachable;
+    }
+
+    // If the right child is not null, then traverse the right subtree of the current node
+    if (node.*.right) |right_child| {
+        try preorder(allocator, right_child, index_stack, visited_nodes);
+    }
+}
+
 /// Perform inorder traversal of binary tree via recursion
 fn inorder(allocator: std.mem.Allocator, current_node: ?*Node, index_stack: *stack.Stack, visited_nodes: *list.SinglyLinkedList(*Node)) std.mem.Allocator.Error!void {
     const node = if (current_node) |val| val else {
@@ -40,6 +70,27 @@ fn recurse_right(node: *Node) *Node {
         return recurse_right(right_child);
     } else return node;
 }
+
+pub const PreorderTraversalEagerIterator = struct {
+    nodes: *list.SinglyLinkedList(*Node),
+    allocator: std.mem.Allocator,
+    current: usize,
+
+    pub fn next(self: *PreorderTraversalEagerIterator) ?u8 {
+        if (self.current < self.nodes.*.len) {
+            const val = if (self.nodes.get(self.current)) |node| node.*.value else |_| unreachable;
+            self.current += 1;
+            return val;
+        }
+
+        return null;
+    }
+
+    pub fn free(self: PreorderTraversalEagerIterator) void {
+        self.nodes.*.free(self.allocator);
+        self.allocator.destroy(self.nodes);
+    }
+};
 
 /// Provides a slice of `u8` pointers in the order of traversal, where the traversal operations
 /// have been eagerly evaluated to produce the slice
@@ -249,6 +300,26 @@ pub const BinarySearchTree = struct {
         // removed and a successor needs to be returned instead, which is what the `else`
         // branch above is doing).
         return current_node;
+    }
+
+    pub fn preorderTraversal(self: BinarySearchTree) std.mem.Allocator.Error!PreorderTraversalEagerIterator {
+        const index_stack = try self.allocator.create(stack.Stack);
+        index_stack.* = stack.Stack.new();
+        const visited_nodes = try self.allocator.create(list.SinglyLinkedList(*Node));
+        visited_nodes.* = list.SinglyLinkedList(*Node).new();
+
+        // Traverse BST
+        try preorder(self.allocator, self.root, index_stack, visited_nodes);
+
+        // Deallocate memory for stack used in traversal
+        index_stack.*.free(self.allocator);
+        self.allocator.destroy(index_stack);
+
+        return PreorderTraversalEagerIterator{
+            .nodes = visited_nodes,
+            .allocator = self.allocator,
+            .current = 0,
+        };
     }
 
     pub fn inorderTraversal(self: BinarySearchTree) std.mem.Allocator.Error!InorderTraversalEagerIterator {
@@ -581,5 +652,31 @@ test "return error if removing value from BST that doesn't exist in it" {
     try std.testing.expectError(Error.ElementNotFound, res);
 
     // Free BST
+    try bst.free();
+}
+
+test "preorder traversal iterator produces correct ordering of visited nodes" {
+    const allocator = std.testing.allocator;
+    var bst = try BinarySearchTree.new(allocator);
+    const values = [_]u8{ 7, 1, 3, 9, 14, 4, 19, 18, 10, 2, 31, 16, 5, 29, 11 };
+    const expected_ordering = [_]u8{ 7, 1, 3, 2, 4, 5, 9, 14, 10, 11, 19, 18, 16, 31, 29 };
+
+    // Insert elements into BST
+    for (values) |value| {
+        try bst.insert(value);
+    }
+
+    // Get preorder traversal iterator over BST
+    var iterator = try bst.preorderTraversal();
+
+    // Traverse preorder iterator and check the visited nodes ordering is as expected
+    var count: usize = 0;
+    while (iterator.next()) |item| {
+        try std.testing.expectEqual(expected_ordering[count], item);
+        count += 1;
+    }
+
+    // Free iterator and BST
+    iterator.free();
     try bst.free();
 }
