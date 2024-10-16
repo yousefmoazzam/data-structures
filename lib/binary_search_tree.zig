@@ -74,6 +74,7 @@ pub const InorderTraversalEagerIterator = struct {
 
 const Error = error{
     EmptyTree,
+    ElementNotFound,
 };
 
 const Node = struct {
@@ -146,14 +147,16 @@ pub const BinarySearchTree = struct {
         if (self.root == null) {
             return Error.EmptyTree;
         }
-        self.root = self.remove_recurse(self.root, value);
+        self.root = try self.remove_recurse(self.root, value);
     }
 
-    fn remove_recurse(self: *BinarySearchTree, node: ?*Node, value: u8) ?*Node {
+    fn remove_recurse(self: *BinarySearchTree, node: ?*Node, value: u8) Error!?*Node {
         const current_node = if (node) |val| val else {
-            // TODO: Handle when attempting to remove element when the root node is null (ie,
-            // trying to remove an element from an empty BST). For now, panic.
-            unreachable;
+            // The BST cannot be empty, because a `EmptyTree` error would have been returned in
+            // `remove()`. This means that recursion down the tree in an attempt to find the
+            // value to remove in the tree has resulted in hitting a null node. This means that
+            // the value isn't in the BST, so return an error.
+            return Error.ElementNotFound;
         };
 
         if (value < current_node.*.value) {
@@ -166,7 +169,7 @@ pub const BinarySearchTree = struct {
             // the same left child node (ie, the left child will be reassigned, but to the same
             // node as it was before); this is what the return statement at the very end of the
             // function body takes care of
-            current_node.*.left = self.remove_recurse(current_node.*.left, value);
+            current_node.*.left = try self.remove_recurse(current_node.*.left, value);
         } else if (value > current_node.*.value) {
             // The right subtree of the current node contains the node to remove. Reassign the
             // right child of the current node to the returned node of the next layer of
@@ -174,7 +177,7 @@ pub const BinarySearchTree = struct {
             //
             // The two possibilities of what can be returned for the next recursive call are
             // the same as detailed in the left child case above, but for the right child.
-            current_node.*.right = self.remove_recurse(current_node.*.right, value);
+            current_node.*.right = try self.remove_recurse(current_node.*.right, value);
         } else {
             // Node value is equal to the given value, so this is the node to remove. Need to
             // check if there are:
@@ -227,7 +230,13 @@ pub const BinarySearchTree = struct {
             // contained the value we wanted to remove - instead, the node with the value we
             // want to remove has its value replaced to main the BST invariant, and the node
             // actually removed is the node that is the successor.
-            self.root = self.remove_recurse(self.root, largest_in_left_subtree.*.value);
+            self.root = if (self.remove_recurse(self.root, largest_in_left_subtree.*.value)) |val| val else |_| {
+                // Recursion to find the node to remove has already found the node to remove,
+                // and a successor has been found as well. This must mean that the value
+                // requested to be removed exists in the BST, so an `ElementNotFound` error
+                // shouldn't be encountered. Hence, unreachable.
+                unreachable;
+            };
 
             // Finally, swap the value in the node to remove, with the largest value in the
             // left subtree
@@ -554,4 +563,23 @@ test "return error if removing element from empty BST" {
     var bst = try BinarySearchTree.new(allocator);
     const res = bst.remove(3);
     try std.testing.expectError(Error.EmptyTree, res);
+}
+
+test "return error if removing value from BST that doesn't exist in it" {
+    const allocator = std.testing.allocator;
+    var bst = try BinarySearchTree.new(allocator);
+    const values = [_]u8{ 6, 3, 8 };
+    const non_existent_value = 4;
+
+    // Insert elements into BST
+    for (values) |value| {
+        try bst.insert(value);
+    }
+
+    // Attempt to remove non-existent value in BST, and check that an error is returned
+    const res = bst.remove(non_existent_value);
+    try std.testing.expectError(Error.ElementNotFound, res);
+
+    // Free BST
+    try bst.free();
 }
