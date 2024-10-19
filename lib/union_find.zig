@@ -17,6 +17,10 @@ pub const UnionFind = struct {
         };
     }
 
+    pub fn free(self: *UnionFind) std.mem.Allocator.Error!void {
+        try self.arr.free(self.allocator);
+    }
+
     pub fn insert(self: *UnionFind, value: u8) std.mem.Allocator.Error!void {
         try self.arr.append(self.allocator, value);
         self.count += 1;
@@ -29,4 +33,5 @@ test "insert single element into union-find" {
     var union_find = try UnionFind.new(allocator);
     try union_find.insert(value);
     try std.testing.expectEqual(1, union_find.count);
+    try union_find.free();
 }
