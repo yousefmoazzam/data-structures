@@ -8,10 +8,10 @@ const BinaryHeap = struct {
         ElementNotFound,
     };
 
-    arr: array.DynamicArray,
+    arr: array.DynamicArray(u8),
 
     pub fn new(allocator: std.mem.Allocator) std.mem.Allocator.Error!BinaryHeap {
-        return BinaryHeap{ .arr = try array.DynamicArray.new(allocator, 0) };
+        return BinaryHeap{ .arr = try array.DynamicArray(u8).new(allocator, 0) };
     }
 
     pub fn free(self: *BinaryHeap, allocator: std.mem.Allocator) std.mem.Allocator.Error!void {

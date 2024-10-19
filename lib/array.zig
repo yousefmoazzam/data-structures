@@ -4,118 +4,122 @@ const DynamicArrayError = error{
     OutOfBounds,
 };
 
-pub const DynamicArray = struct {
-    // Length of the dynamic array as seen by the user
-    len: usize,
-    // Slice of internal static array used to provide the dynamic array
-    slice: []u8,
+pub fn DynamicArray(comptime T: type) type {
+    return struct {
+        // Length of the dynamic array as seen by the user
+        len: usize,
+        // Slice of internal static array used to provide the dynamic array
+        slice: []T,
 
-    pub fn new(allocator: std.mem.Allocator, len: usize) std.mem.Allocator.Error!DynamicArray {
-        const slice = try allocator.alloc(u8, len);
-        return DynamicArray{
-            .len = len,
-            .slice = slice,
-        };
-    }
+        const Self = @This();
 
-    pub fn free(self: *DynamicArray, allocator: std.mem.Allocator) std.mem.Allocator.Error!void {
-        allocator.free(self.slice);
-        self.slice = try allocator.alloc(u8, 0);
-        self.len = 0;
-    }
-
-    pub fn set(self: DynamicArray, idx: usize, value: u8) DynamicArrayError!void {
-        if (idx >= self.len) {
-            return DynamicArrayError.OutOfBounds;
+        pub fn new(allocator: std.mem.Allocator, len: usize) std.mem.Allocator.Error!Self {
+            const slice = try allocator.alloc(T, len);
+            return Self{
+                .len = len,
+                .slice = slice,
+            };
         }
-        self.slice[idx] = value;
-    }
 
-    pub fn get(self: DynamicArray, idx: usize) DynamicArrayError!u8 {
-        if (idx >= self.len) {
-            return DynamicArrayError.OutOfBounds;
-        }
-        return self.slice[idx];
-    }
-
-    pub fn get_slice(self: DynamicArray, start: usize, stop: usize) DynamicArrayError![]u8 {
-        if (stop > self.len) {
-            return DynamicArrayError.OutOfBounds;
-        }
-        return self.slice[start..stop];
-    }
-
-    pub fn append(self: *DynamicArray, allocator: std.mem.Allocator, value: u8) std.mem.Allocator.Error!void {
-        if (self.len == self.slice.len) {
-            // Allocate new larger slice
-            const new_len = if (self.len == 0) 2 else self.len * 2;
-            const slice = try allocator.alloc(u8, new_len);
-            // Copy values from existing slice into new slice
-            for (0..self.slice.len) |i| {
-                slice[i] = self.slice[i];
-            }
-            // Set newly appended element
-            slice[self.slice.len] = value;
-            // Free old slice and assign newly created one
+        pub fn free(self: *Self, allocator: std.mem.Allocator) std.mem.Allocator.Error!void {
             allocator.free(self.slice);
-            self.slice = slice;
-        } else {
-            self.slice[self.len] = value;
-        }
-        self.len += 1;
-    }
-
-    pub fn insert(self: *DynamicArray, allocator: std.mem.Allocator, idx: usize, value: u8) (std.mem.Allocator.Error || DynamicArrayError)!void {
-        if (idx >= self.len) {
-            return DynamicArrayError.OutOfBounds;
+            self.slice = try allocator.alloc(T, 0);
+            self.len = 0;
         }
 
-        if (self.len == self.slice.len) {
-            // Allocate new larger slice
-            const slice = try allocator.alloc(u8, self.len * 2);
-            // Copy values from 0 to `idx` to the new slice
-            for (0..idx) |i| {
-                slice[i] = self.slice[i];
+        pub fn set(self: Self, idx: usize, value: u8) DynamicArrayError!void {
+            if (idx >= self.len) {
+                return DynamicArrayError.OutOfBounds;
             }
-            // Insert new value
-            slice[idx] = value;
-            // Copy the remaining values from the old slice into the new slice
-            for (idx + 1..self.len + 1) |i| {
-                slice[i] = self.slice[i - 1];
-            }
-            // Free old slice
-            allocator.free(self.slice);
-            self.slice = slice;
-        } else {
-            // For indices after `idx`, shift their contents to the right by 1
-            for (0..self.len - idx) |i| {
-                self.slice[self.len - i] = self.slice[self.len - i - 1];
-            }
-            // Insert new value at given index
             self.slice[idx] = value;
         }
-        self.len += 1;
-    }
 
-    pub fn delete(self: *DynamicArray, idx: usize) DynamicArrayError!void {
-        if (idx >= self.len) {
-            return DynamicArrayError.OutOfBounds;
+        pub fn get(self: Self, idx: usize) DynamicArrayError!T {
+            if (idx >= self.len) {
+                return DynamicArrayError.OutOfBounds;
+            }
+            return self.slice[idx];
         }
 
-        // Shift elements on RHS of `idx` down by 1 position
-        for (idx..self.len - 1) |i| {
-            self.slice[i] = self.slice[i + 1];
+        pub fn get_slice(self: Self, start: usize, stop: usize) DynamicArrayError![]T {
+            if (stop > self.len) {
+                return DynamicArrayError.OutOfBounds;
+            }
+            return self.slice[start..stop];
         }
 
-        // Decrease length by 1 to reflect deleted element
-        self.len -= 1;
-    }
-};
+        pub fn append(self: *Self, allocator: std.mem.Allocator, value: T) std.mem.Allocator.Error!void {
+            if (self.len == self.slice.len) {
+                // Allocate new larger slice
+                const new_len = if (self.len == 0) 2 else self.len * 2;
+                const slice = try allocator.alloc(T, new_len);
+                // Copy values from existing slice into new slice
+                for (0..self.slice.len) |i| {
+                    slice[i] = self.slice[i];
+                }
+                // Set newly appended element
+                slice[self.slice.len] = value;
+                // Free old slice and assign newly created one
+                allocator.free(self.slice);
+                self.slice = slice;
+            } else {
+                self.slice[self.len] = value;
+            }
+            self.len += 1;
+        }
+
+        pub fn insert(self: *Self, allocator: std.mem.Allocator, idx: usize, value: T) (std.mem.Allocator.Error || DynamicArrayError)!void {
+            if (idx >= self.len) {
+                return DynamicArrayError.OutOfBounds;
+            }
+
+            if (self.len == self.slice.len) {
+                // Allocate new larger slice
+                const slice = try allocator.alloc(T, self.len * 2);
+                // Copy values from 0 to `idx` to the new slice
+                for (0..idx) |i| {
+                    slice[i] = self.slice[i];
+                }
+                // Insert new value
+                slice[idx] = value;
+                // Copy the remaining values from the old slice into the new slice
+                for (idx + 1..self.len + 1) |i| {
+                    slice[i] = self.slice[i - 1];
+                }
+                // Free old slice
+                allocator.free(self.slice);
+                self.slice = slice;
+            } else {
+                // For indices after `idx`, shift their contents to the right by 1
+                for (0..self.len - idx) |i| {
+                    self.slice[self.len - i] = self.slice[self.len - i - 1];
+                }
+                // Insert new value at given index
+                self.slice[idx] = value;
+            }
+            self.len += 1;
+        }
+
+        pub fn delete(self: *Self, idx: usize) DynamicArrayError!void {
+            if (idx >= self.len) {
+                return DynamicArrayError.OutOfBounds;
+            }
+
+            // Shift elements on RHS of `idx` down by 1 position
+            for (idx..self.len - 1) |i| {
+                self.slice[i] = self.slice[i + 1];
+            }
+
+            // Decrease length by 1 to reflect deleted element
+            self.len -= 1;
+        }
+    };
+}
 
 test "create dynamic array with given length" {
     const len = 5;
     const allocator = std.testing.allocator;
-    var arr = try DynamicArray.new(allocator, len);
+    var arr = try DynamicArray(u8).new(allocator, len);
     try std.testing.expect(arr.len == len);
     try arr.free(allocator);
 }
@@ -123,7 +127,7 @@ test "create dynamic array with given length" {
 test "set and get value in dynamic array" {
     const len = 1;
     const allocator = std.testing.allocator;
-    var arr = try DynamicArray.new(allocator, len);
+    var arr = try DynamicArray(u8).new(allocator, len);
     const new_value = 5;
     try arr.set(0, new_value);
     const val = try arr.get(0);
@@ -134,7 +138,7 @@ test "set and get value in dynamic array" {
 test "return error on out of bounds get index" {
     const len = 1;
     const allocator = std.testing.allocator;
-    var arr = try DynamicArray.new(allocator, len);
+    var arr = try DynamicArray(u8).new(allocator, len);
     const ret = arr.get(1);
     try std.testing.expectError(DynamicArrayError.OutOfBounds, ret);
     try arr.free(allocator);
@@ -143,7 +147,7 @@ test "return error on out of bounds get index" {
 test "return error on out of bounds set index" {
     const len = 1;
     const allocator = std.testing.allocator;
-    var arr = try DynamicArray.new(allocator, len);
+    var arr = try DynamicArray(u8).new(allocator, len);
     const ret = arr.set(1, 5);
     try std.testing.expectError(DynamicArrayError.OutOfBounds, ret);
     try arr.free(allocator);
@@ -152,7 +156,7 @@ test "return error on out of bounds set index" {
 test "get slice of dynamic array" {
     const len = 5;
     const allocator = std.testing.allocator;
-    var arr = try DynamicArray.new(allocator, len);
+    var arr = try DynamicArray(u8).new(allocator, len);
     const expected_values = [_]u8{ 1, 2, 3 };
     const shift = 1;
 
@@ -175,7 +179,7 @@ test "get slice of dynamic array" {
 test "get slice to full data underneath dynamic array" {
     const len = 4;
     const allocator = std.testing.allocator;
-    var arr = try DynamicArray.new(allocator, len);
+    var arr = try DynamicArray(u8).new(allocator, len);
     const values = [_]u8{ 1, 2, 3, 4 };
 
     // Set values in the dynamic array to check later in the slice of the array
@@ -199,7 +203,7 @@ test "get slice to full data underneath dynamic array" {
 test "return error on out of bounds slice" {
     const len = 2;
     const allocator = std.testing.allocator;
-    var arr = try DynamicArray.new(allocator, len);
+    var arr = try DynamicArray(u8).new(allocator, len);
     const ret = arr.get_slice(0, len + 1);
     try std.testing.expectError(DynamicArrayError.OutOfBounds, ret);
     try arr.free(allocator);
@@ -207,7 +211,7 @@ test "return error on out of bounds slice" {
 
 test "append element to empty array" {
     const allocator = std.testing.allocator;
-    var arr = try DynamicArray.new(allocator, 0);
+    var arr = try DynamicArray(u8).new(allocator, 0);
     const value = 5;
     try arr.append(allocator, value);
     try std.testing.expectEqual(1, arr.len);
@@ -220,7 +224,7 @@ test "append element to array" {
     const allocator = std.testing.allocator;
     const existingValue = 1;
     const valueToAppend = 5;
-    var arr = try DynamicArray.new(allocator, startingLen);
+    var arr = try DynamicArray(u8).new(allocator, startingLen);
 
     // Set value in array before appending a new value
     try arr.set(0, existingValue);
@@ -248,7 +252,7 @@ test "append elements to array with no space left" {
     const allocator = std.testing.allocator;
     const existingValue = 1;
     const valuesToAppend = [_]u8{ 1, 2, 3 };
-    var arr = try DynamicArray.new(allocator, startingLen);
+    var arr = try DynamicArray(u8).new(allocator, startingLen);
 
     // Set value in array before appending new values
     try arr.set(0, existingValue);
@@ -280,7 +284,7 @@ test "insert element at start of array" {
     const allocator = std.testing.allocator;
     const existingValues = [_]u8{ 2, 3, 4 };
     const valueToInsert = 1;
-    var arr = try DynamicArray.new(allocator, startlingLen);
+    var arr = try DynamicArray(u8).new(allocator, startlingLen);
 
     // Set values in array before inserting new value
     for (existingValues, 0..) |value, i| {
@@ -312,7 +316,7 @@ test "insert element at start of array" {
 test "return error on out of bounds insert" {
     const startingLen = 2;
     const allocator = std.testing.allocator;
-    var arr = try DynamicArray.new(allocator, startingLen);
+    var arr = try DynamicArray(u8).new(allocator, startingLen);
     const ret = arr.insert(allocator, startingLen, 0);
     try std.testing.expectError(DynamicArrayError.OutOfBounds, ret);
     try arr.free(allocator);
@@ -324,7 +328,7 @@ test "insert element at non-zero index of array" {
     const existingValues = [_]u8{ 2, 3, 4 };
     const valueToInsert = 1;
     const nonZeroIdx = 1;
-    var arr = try DynamicArray.new(allocator, startlingLen);
+    var arr = try DynamicArray(u8).new(allocator, startlingLen);
 
     // Set values in array before inserting new value
     for (existingValues, 0..) |value, i| {
@@ -354,7 +358,7 @@ test "insert elements into array with no space left" {
     const allocator = std.testing.allocator;
     const existingValues = [_]u8{ 0, 1 };
     const valuesToInsert = [_]u8{ 2, 3, 4 };
-    var arr = try DynamicArray.new(allocator, startingLen);
+    var arr = try DynamicArray(u8).new(allocator, startingLen);
 
     // Set value in array before inserting a new value
     for (0..existingValues.len) |i| {
@@ -390,7 +394,7 @@ test "return error on out of bounds delete" {
     const startingLen = 2;
     const allocator = std.testing.allocator;
     const outOfBoundsIdx = 2;
-    var arr = try DynamicArray.new(allocator, startingLen);
+    var arr = try DynamicArray(u8).new(allocator, startingLen);
 
     // Attempt to delete element at out of bounds index
     const ret = arr.delete(outOfBoundsIdx);
@@ -404,7 +408,7 @@ test "delete element at start of array" {
     const startingLen = 3;
     const allocator = std.testing.allocator;
     const existingValues = [_]u8{ 0, 1, 2 };
-    var arr = try DynamicArray.new(allocator, startingLen);
+    var arr = try DynamicArray(u8).new(allocator, startingLen);
 
     // Set values in array before deletion
     for (0..existingValues.len - 1) |i| {
@@ -429,7 +433,7 @@ test "delete element at start of array" {
 
 test "freeing non-empty array resets length to zero" {
     const allocator = std.testing.allocator;
-    var arr = try DynamicArray.new(allocator, 0);
+    var arr = try DynamicArray(u8).new(allocator, 0);
     const values = [_]u8{ 1, 2, 3 };
 
     // Append values to array
@@ -446,7 +450,7 @@ test "freeing non-empty array resets length to zero" {
 
 test "reuse array after free" {
     const allocator = std.testing.allocator;
-    var arr = try DynamicArray.new(allocator, 0);
+    var arr = try DynamicArray(u8).new(allocator, 0);
     const values = [_]u8{ 2, 3 };
 
     // Append values to array
