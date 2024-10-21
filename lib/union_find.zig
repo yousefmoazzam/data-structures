@@ -3,22 +3,17 @@ const std = @import("std");
 const array = @import("array.zig");
 const hash_table = @import("hash_table.zig");
 
-const Node = struct {
-    value: u8,
-    parent: *Node,
-};
-
 pub const UnionFind = struct {
     /// Number of elements in the data structure
     count: usize,
     /// Underlying data structure to hold elements
-    arr: *array.DynamicArray(Node),
+    arr: *array.DynamicArray(usize),
     allocator: std.mem.Allocator,
     map: *hash_table.HashTable(usize),
 
     pub fn new(allocator: std.mem.Allocator) std.mem.Allocator.Error!UnionFind {
-        const arr = try allocator.create(array.DynamicArray(Node));
-        arr.* = try array.DynamicArray(Node).new(allocator, 0);
+        const arr = try allocator.create(array.DynamicArray(usize));
+        arr.* = try array.DynamicArray(usize).new(allocator, 0);
         const map = try allocator.create(hash_table.HashTable(usize));
         map.* = try hash_table.HashTable(usize).new(allocator);
         return UnionFind{
@@ -37,28 +32,7 @@ pub const UnionFind = struct {
     }
 
     pub fn insert(self: *UnionFind, value: u8) std.mem.Allocator.Error!void {
-        // Create node containing the value, but don't set the parent field yet. This is
-        // because it's a pointer, and appending the node to the dynamic array will cause a
-        // copy of the stack-allocated node instance to be put into the dynamic array's
-        // underlying slice. The pointer of the copy in the dynamic array would then point to
-        // the stack-allocated node instance, rather than the copy itself. The parent field of
-        // the copy in the dynamic array will be set later
-        const local_node = Node{ .value = value, .parent = undefined };
-        try self.arr.*.append(self.allocator, local_node);
-
-        // Get a subset of the slice underneath the dynamic array, to be able to modify the
-        // node instance in the dynamic array itself (using `self.arr.*.get()` seems to return
-        // a copy rather than the one actually in the dynamic array, and modifying a copy
-        // doesn't achieve what's necessary for the node-pointing-to-parent-node to work).
-        var arr_slice = if (self.arr.*.get_slice(self.count, self.count + 1)) |val| val else |_| {
-            // This slice of a single element shoudl always be within the bounds of the array,
-            // because the dynamic array has just been expanded by one element, and this is the
-            // element we're getting a slice to. So, an `OutOfBounds` error should never be
-            // returned. Hence, unreachable
-            unreachable;
-        };
-        arr_slice[0].parent = &arr_slice[0];
-
+        try self.arr.*.append(self.allocator, self.count);
         try self.map.*.put(self.allocator, value, self.count);
         self.count += 1;
     }
@@ -70,13 +44,20 @@ pub const UnionFind = struct {
             unreachable;
         };
 
-        if (self.arr.*.get(idx)) |node| {
-            if (node.parent.*.value == node.value) {
-                return node.value;
+        if (self.arr.*.get(idx)) |parent_idx| {
+            if (parent_idx == idx) {
+                // The value stored at `idx` in the array is the same as the value which
+                // `value` mapped to in the hash table. This means that the representative of
+                // the set that `value` is in, is itself
+                return value;
             }
 
-            // TODO: Handle when the parent pointer needs to be followed to the representative
-            // of the set that the node belongs to. For now, panic.
+            // TODO: If execution has reached there, this means that the representative of
+            // `value` is not itself, and the root needs to be found.
+            //
+            // This is done by following the value stored at `idx` (using it as the index of
+            // the "parent" of `value), and following the parents until the representative has
+            // been found.
             unreachable;
         } else |_| {
             // If the value has been mapped to a non-negative integer and put into the hash
