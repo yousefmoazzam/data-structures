@@ -27,7 +27,7 @@ pub fn DynamicArray(comptime T: type) type {
             self.len = 0;
         }
 
-        pub fn set(self: Self, idx: usize, value: u8) DynamicArrayError!void {
+        pub fn set(self: Self, idx: usize, value: T) DynamicArrayError!void {
             if (idx >= self.len) {
                 return DynamicArrayError.OutOfBounds;
             }
