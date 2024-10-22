@@ -94,6 +94,11 @@ pub const UnionFind = struct {
     }
 
     pub fn unify(self: *UnionFind, a: u8, b: u8) void {
+        if (a == b) {
+            // Nothing to do.
+            return;
+        }
+
         // Need to make either:
         // - `a` the parent of `b`, or
         // - `b` the parent of `a`
@@ -109,11 +114,6 @@ pub const UnionFind = struct {
             // now, panic
             unreachable;
         };
-
-        if (a == b) {
-            // TODO: Handle attempting to unify an element with itself. For now, panic.
-            unreachable;
-        }
 
         if (a_idx < b_idx) {
             if (self.parents.*.set(b_idx, a_idx)) |_| {} else |_| {
@@ -218,6 +218,25 @@ test "return error if finding element that doesn't exist in union-find" {
     // is returned
     const ret = union_find.find(non_existent_value);
     try std.testing.expectError(Error.ElementNotFound, ret);
+
+    // Free union-find
+    try union_find.free();
+}
+
+test "unifying an element in the union-find with itself keeps its parent as itself" {
+    const allocator = std.testing.allocator;
+    var union_find = try UnionFind.new(allocator);
+    const values = [_]u8{ 3, 7 };
+
+    // Insert values into union-find
+    for (values) |value| {
+        try union_find.insert(value);
+    }
+
+    // Unify an element with itself, and check nothing strange has happened with its parent
+    // (ie, that its parent is still itself)
+    union_find.unify(values[0], values[0]);
+    try std.testing.expectEqual(values[0], try union_find.find(values[0]));
 
     // Free union-find
     try union_find.free();
