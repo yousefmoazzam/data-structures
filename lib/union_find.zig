@@ -3,6 +3,10 @@ const std = @import("std");
 const array = @import("array.zig");
 const hash_table = @import("hash_table.zig");
 
+const Error = error{
+    ElementNotFound,
+};
+
 pub const UnionFind = struct {
     /// Number of elements in the data structure
     count: usize,
@@ -44,11 +48,9 @@ pub const UnionFind = struct {
         self.count += 1;
     }
 
-    pub fn find(self: UnionFind, value: u8) u8 {
+    pub fn find(self: UnionFind, value: u8) Error!u8 {
         const idx = if (self.map.*.get(value)) |val| val else |_| {
-            // TODO: Return appropriate error if requesting to find a value that doesn't exist
-            // in the hash table. For now, panic.
-            unreachable;
+            return Error.ElementNotFound;
         };
 
         if (self.parents.*.get(idx)) |parent_idx| {
@@ -171,8 +173,8 @@ test "unify two elements in union-find into the same set" {
     union_find.unify(values[0], values[1]);
 
     // Verify that the two values in union-find have the same representative
-    const rep_one = union_find.find(values[0]);
-    const rep_two = union_find.find(values[1]);
+    const rep_one = try union_find.find(values[0]);
+    const rep_two = try union_find.find(values[1]);
     try std.testing.expectEqual(rep_one == rep_two, true);
 
     // Free union-find
@@ -193,9 +195,29 @@ test "unify two elements in union-find into the same set, swapped inputs to unif
     union_find.unify(values[1], values[0]);
 
     // Verify that the two values in union-find have the same representative
-    const rep_one = union_find.find(values[0]);
-    const rep_two = union_find.find(values[1]);
+    const rep_one = try union_find.find(values[0]);
+    const rep_two = try union_find.find(values[1]);
     try std.testing.expectEqual(rep_one == rep_two, true);
+
+    // Free union-find
+    try union_find.free();
+}
+
+test "return error if finding element that doesn't exist in union-find" {
+    const allocator = std.testing.allocator;
+    var union_find = try UnionFind.new(allocator);
+    const values = [_]u8{ 3, 7 };
+    const non_existent_value = 9;
+
+    // Insert values into union-find
+    for (values) |value| {
+        try union_find.insert(value);
+    }
+
+    // Attempt to find representative of non-existent value in union-find, and check an error
+    // is returned
+    const ret = union_find.find(non_existent_value);
+    try std.testing.expectError(Error.ElementNotFound, ret);
 
     // Free union-find
     try union_find.free();
