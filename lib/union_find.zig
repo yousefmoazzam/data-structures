@@ -7,20 +7,20 @@ pub const UnionFind = struct {
     /// Number of elements in the data structure
     count: usize,
     /// Underlying data structure to hold elements
-    arr: *array.DynamicArray(usize),
+    parents: *array.DynamicArray(usize),
     elements: *array.DynamicArray(u8),
     allocator: std.mem.Allocator,
     map: *hash_table.HashTable(usize),
 
     pub fn new(allocator: std.mem.Allocator) std.mem.Allocator.Error!UnionFind {
-        const arr = try allocator.create(array.DynamicArray(usize));
-        arr.* = try array.DynamicArray(usize).new(allocator, 0);
+        const parents = try allocator.create(array.DynamicArray(usize));
+        parents.* = try array.DynamicArray(usize).new(allocator, 0);
         const map = try allocator.create(hash_table.HashTable(usize));
         map.* = try hash_table.HashTable(usize).new(allocator);
         const elements = try allocator.create(array.DynamicArray(u8));
         elements.* = try array.DynamicArray(u8).new(allocator, 0);
         return UnionFind{
-            .arr = arr,
+            .parents = parents,
             .count = 0,
             .allocator = allocator,
             .map = map,
@@ -29,8 +29,8 @@ pub const UnionFind = struct {
     }
 
     pub fn free(self: *UnionFind) std.mem.Allocator.Error!void {
-        try self.arr.*.free(self.allocator);
-        self.allocator.destroy(self.arr);
+        try self.parents.*.free(self.allocator);
+        self.allocator.destroy(self.parents);
         try self.map.*.free(self.allocator);
         self.allocator.destroy(self.map);
         try self.elements.*.free(self.allocator);
@@ -38,7 +38,7 @@ pub const UnionFind = struct {
     }
 
     pub fn insert(self: *UnionFind, value: u8) std.mem.Allocator.Error!void {
-        try self.arr.*.append(self.allocator, self.count);
+        try self.parents.*.append(self.allocator, self.count);
         try self.elements.*.append(self.allocator, value);
         try self.map.*.put(self.allocator, value, self.count);
         self.count += 1;
@@ -51,7 +51,7 @@ pub const UnionFind = struct {
             unreachable;
         };
 
-        if (self.arr.*.get(idx)) |parent_idx| {
+        if (self.parents.*.get(idx)) |parent_idx| {
             if (parent_idx == idx) {
                 // The value stored at `idx` in the array is the same as the value which
                 // `value` mapped to in the hash table. This means that the representative of
@@ -68,7 +68,7 @@ pub const UnionFind = struct {
             var current_idx = parent_idx;
             var next_idx = parent_idx;
             while (true) {
-                next_idx = if (self.arr.*.get(current_idx)) |val| val else |_| {
+                next_idx = if (self.parents.*.get(current_idx)) |val| val else |_| {
                     // All values stored in the underlying should be valid indices into the
                     // array, so an `OutOfBounds` error should never be returned. Hence,
                     // unreachable.
@@ -78,7 +78,7 @@ pub const UnionFind = struct {
                 current_idx = next_idx;
             }
 
-            const representative_idx = if (self.arr.*.get(current_idx)) |val| val else |_| unreachable;
+            const representative_idx = if (self.parents.*.get(current_idx)) |val| val else |_| unreachable;
             return if (self.elements.*.get(representative_idx)) |val| val else |_| {
                 unreachable;
             };
@@ -114,7 +114,7 @@ pub const UnionFind = struct {
         }
 
         if (a_idx < b_idx) {
-            if (self.arr.*.set(b_idx, a_idx)) |_| {} else |_| {
+            if (self.parents.*.set(b_idx, a_idx)) |_| {} else |_| {
                 // `b_idx` should be a valid index in the underlying array (since it came from
                 // the hash table, which should contain within-bound array indices). So, an
                 // `OutOfBounds` error shouldn't be possible here. Hence, unreachable.
@@ -123,7 +123,7 @@ pub const UnionFind = struct {
         }
 
         if (b_idx < a_idx) {
-            if (self.arr.*.set(a_idx, b_idx)) |_| {} else |_| {
+            if (self.parents.*.set(a_idx, b_idx)) |_| {} else |_| {
                 // Similar reasoning as above `else` clause being unreachble, just replacing
                 // `b_idx` there with `a_idx` here.
                 unreachable;
