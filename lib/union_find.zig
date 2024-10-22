@@ -93,7 +93,7 @@ pub const UnionFind = struct {
         }
     }
 
-    pub fn unify(self: *UnionFind, a: u8, b: u8) void {
+    pub fn unify(self: *UnionFind, a: u8, b: u8) Error!void {
         if (a == b) {
             // Nothing to do.
             return;
@@ -105,14 +105,12 @@ pub const UnionFind = struct {
         //
         // Arbitrarily, make the element which maps to smaller index the "parent"
         const a_idx = if (self.map.*.get(a)) |val| val else |_| {
-            // TODO: Handle trying to unify two elements where `a` isn't in the union-find. For
-            // now, panic
-            unreachable;
+            // Return error if trying to unify two elements where `a` isn't in the union-find.
+            return Error.ElementNotFound;
         };
         const b_idx = if (self.map.*.get(b)) |val| val else |_| {
-            // TODO: Handle trying to unify two elements where `b` isn't in the union-find. For
-            // now, panic
-            unreachable;
+            // Return error if trying to unify two elements where `b` isn't in the union-find.
+            return Error.ElementNotFound;
         };
 
         if (a_idx < b_idx) {
@@ -170,7 +168,7 @@ test "unify two elements in union-find into the same set" {
     }
 
     // Unify both values into the same set
-    union_find.unify(values[0], values[1]);
+    try union_find.unify(values[0], values[1]);
 
     // Verify that the two values in union-find have the same representative
     const rep_one = try union_find.find(values[0]);
@@ -192,7 +190,7 @@ test "unify two elements in union-find into the same set, swapped inputs to unif
     }
 
     // Unify both values into the same set
-    union_find.unify(values[1], values[0]);
+    try union_find.unify(values[1], values[0]);
 
     // Verify that the two values in union-find have the same representative
     const rep_one = try union_find.find(values[0]);
@@ -235,8 +233,48 @@ test "unifying an element in the union-find with itself keeps its parent as itse
 
     // Unify an element with itself, and check nothing strange has happened with its parent
     // (ie, that its parent is still itself)
-    union_find.unify(values[0], values[0]);
+    try union_find.unify(values[0], values[0]);
     try std.testing.expectEqual(values[0], try union_find.find(values[0]));
+
+    // Free union-find
+    try union_find.free();
+}
+
+test "return error if trying to unify elements where left doesn't exist in union-find" {
+    const allocator = std.testing.allocator;
+    var union_find = try UnionFind.new(allocator);
+    const values = [_]u8{ 3, 7 };
+    const non_existent_value = 10;
+
+    // Insert values into union-find
+    for (values) |value| {
+        try union_find.insert(value);
+    }
+
+    // Attempt to unify an existent element with a non-existent element, and check an error has
+    // been returned
+    const ret = union_find.unify(non_existent_value, values[0]);
+    try std.testing.expectError(Error.ElementNotFound, ret);
+
+    // Free union-find
+    try union_find.free();
+}
+
+test "return error if trying to unify elements where right doesn't exist in union-find" {
+    const allocator = std.testing.allocator;
+    var union_find = try UnionFind.new(allocator);
+    const values = [_]u8{ 3, 7 };
+    const non_existent_value = 10;
+
+    // Insert values into union-find
+    for (values) |value| {
+        try union_find.insert(value);
+    }
+
+    // Attempt to unify an existent element with a non-existent element, and check an error has
+    // been returned
+    const ret = union_find.unify(values[0], non_existent_value);
+    try std.testing.expectError(Error.ElementNotFound, ret);
 
     // Free union-find
     try union_find.free();
