@@ -49,6 +49,7 @@ pub const UnionFind = struct {
         try self.elements.*.append(self.allocator, value);
         try self.map.*.put(self.allocator, value, self.count);
         self.count += 1;
+        self.set_count += 1;
     }
 
     pub fn find(self: UnionFind, value: u8) Error!u8 {
@@ -287,5 +288,22 @@ test "empty union-find has a set-count of zero" {
     const allocator = std.testing.allocator;
     var union_find = try UnionFind.new(allocator);
     try std.testing.expectEqual(union_find.set_count, 0);
+    try union_find.free();
+}
+
+test "inserting elements into union-find increments the set count" {
+    const allocator = std.testing.allocator;
+    var union_find = try UnionFind.new(allocator);
+    const values = [_]u8{ 3, 5, 7, 9 };
+
+    // Insert values into union-find and check that the set count increments as expected
+    var expected_count: usize = 0;
+    for (values) |value| {
+        try union_find.insert(value);
+        expected_count += 1;
+        try std.testing.expectEqual(expected_count, union_find.set_count);
+    }
+
+    // Free union-find
     try union_find.free();
 }
