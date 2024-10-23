@@ -8,6 +8,8 @@ const Error = error{
 };
 
 pub const UnionFind = struct {
+    /// Number of sets of elements
+    set_count: usize,
     /// Number of elements in the data structure
     count: usize,
     /// Underlying data structure to hold elements
@@ -25,6 +27,7 @@ pub const UnionFind = struct {
         elements.* = try array.DynamicArray(u8).new(allocator, 0);
         return UnionFind{
             .parents = parents,
+            .set_count = 0,
             .count = 0,
             .allocator = allocator,
             .map = map,
@@ -277,5 +280,12 @@ test "return error if trying to unify elements where right doesn't exist in unio
     try std.testing.expectError(Error.ElementNotFound, ret);
 
     // Free union-find
+    try union_find.free();
+}
+
+test "empty union-find has a set-count of zero" {
+    const allocator = std.testing.allocator;
+    var union_find = try UnionFind.new(allocator);
+    try std.testing.expectEqual(union_find.set_count, 0);
     try union_find.free();
 }
