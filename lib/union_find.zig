@@ -133,6 +133,10 @@ pub const UnionFind = struct {
                 unreachable;
             }
         }
+
+        // If execution reached here then a successful unification must have occurred, so
+        // decrement the set-count
+        self.set_count -= 1;
     }
 };
 
@@ -301,6 +305,29 @@ test "inserting elements into union-find increments the set count" {
     for (values) |value| {
         try union_find.insert(value);
         expected_count += 1;
+        try std.testing.expectEqual(expected_count, union_find.set_count);
+    }
+
+    // Free union-find
+    try union_find.free();
+}
+
+test "unifying sets in a union-find decrements the set count" {
+    const allocator = std.testing.allocator;
+    var union_find = try UnionFind.new(allocator);
+    const values = [_]u8{ 3, 5, 7, 9 };
+
+    // Insert values into union-find
+    for (values) |value| {
+        try union_find.insert(value);
+    }
+
+    // Unify the first three values that were inserted in the union-find with the fourth
+    // element that was inserted, and check that the set count decrements as expected
+    var expected_count: usize = 4;
+    for (0..values.len - 1) |i| {
+        try union_find.unify(values[i], values[3]);
+        expected_count -= 1;
         try std.testing.expectEqual(expected_count, union_find.set_count);
     }
 
