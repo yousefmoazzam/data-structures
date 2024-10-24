@@ -117,19 +117,26 @@ pub const UnionFind = struct {
             return Error.ElementNotFound;
         };
 
+        // If execution has reached this point, none of the operations here should return an
+        // error, hence the use of unreachable.
+        const a_rep = if (self.find(a)) |val| val else |_| unreachable;
+        const a_rep_idx = if (self.map.*.get(a_rep)) |val| val else |_| unreachable;
+        const b_rep = if (self.find(b)) |val| val else |_| unreachable;
+        const b_rep_idx = if (self.map.*.get(b_rep)) |val| val else |_| unreachable;
+
         if (a_idx < b_idx) {
-            if (self.parents.*.set(b_idx, a_idx)) |_| {} else |_| {
-                // `b_idx` should be a valid index in the underlying array (since it came from
-                // the hash table, which should contain within-bound array indices). So, an
-                // `OutOfBounds` error shouldn't be possible here. Hence, unreachable.
+            if (self.parents.*.set(b_rep_idx, a_rep_idx)) |_| {} else |_| {
+                // `b_rep_idx` should be a valid index in the underlying array (since it came
+                // from the hash table, which should contain within-bound array indices). So,
+                // an `OutOfBounds` error shouldn't be possible here. Hence, unreachable.
                 unreachable;
             }
         }
 
         if (b_idx < a_idx) {
-            if (self.parents.*.set(a_idx, b_idx)) |_| {} else |_| {
+            if (self.parents.*.set(a_rep_idx, b_rep_idx)) |_| {} else |_| {
                 // Similar reasoning as above `else` clause being unreachble, just replacing
-                // `b_idx` there with `a_idx` here.
+                // `b_rep_idx` there with `a_rep_idx` here.
                 unreachable;
             }
         }
@@ -330,6 +337,68 @@ test "unifying sets in a union-find decrements the set count" {
         expected_count -= 1;
         try std.testing.expectEqual(expected_count, union_find.set_count);
     }
+
+    // Free union-find
+    try union_find.free();
+}
+
+test "unifying non-representatives in two non-unit sets in union-find updates their representatives" {
+    const allocator = std.testing.allocator;
+    var union_find = try UnionFind.new(allocator);
+    const values = [_]u8{ 3, 7, 9, 11 };
+
+    // Insert values into union-find
+    for (values) |value| {
+        try union_find.insert(value);
+    }
+
+    // Unify the first two elements into a set, and the second two elements into a set
+    try union_find.unify(values[0], values[1]);
+    try union_find.unify(values[2], values[3]);
+
+    // Then unify the non-representative element in one set with the non-representative element
+    // in the other set, which will unify the two sets
+    try union_find.unify(values[1], values[3]);
+
+    // Check that all four element have the same representative
+    const rep_one = try union_find.find(values[0]);
+    const rep_two = try union_find.find(values[1]);
+    const rep_three = try union_find.find(values[2]);
+    const rep_four = try union_find.find(values[3]);
+    try std.testing.expectEqual(rep_one, rep_two);
+    try std.testing.expectEqual(rep_one, rep_three);
+    try std.testing.expectEqual(rep_one, rep_four);
+
+    // Free union-find
+    try union_find.free();
+}
+
+test "unifying non-representatives in two non-unit sets in union-find updates their representatives, reverse unify param order" {
+    const allocator = std.testing.allocator;
+    var union_find = try UnionFind.new(allocator);
+    const values = [_]u8{ 3, 7, 9, 11 };
+
+    // Insert values into union-find
+    for (values) |value| {
+        try union_find.insert(value);
+    }
+
+    // Unify the first two elements into a set, and the second two elements into a set
+    try union_find.unify(values[0], values[1]);
+    try union_find.unify(values[2], values[3]);
+
+    // Then unify the non-representative element in one set with the non-representative element
+    // in the other set, which will unify the two sets
+    try union_find.unify(values[3], values[1]);
+
+    // Check that all four element have the same representative
+    const rep_one = try union_find.find(values[0]);
+    const rep_two = try union_find.find(values[1]);
+    const rep_three = try union_find.find(values[2]);
+    const rep_four = try union_find.find(values[3]);
+    try std.testing.expectEqual(rep_one, rep_two);
+    try std.testing.expectEqual(rep_one, rep_three);
+    try std.testing.expectEqual(rep_one, rep_four);
 
     // Free union-find
     try union_find.free();
