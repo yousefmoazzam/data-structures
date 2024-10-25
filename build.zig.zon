@@ -1,0 +1,9 @@
+.{
+    .name = "data_structures_and_algorithms",
+    .version = "0.0.0",
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+    },
+}
